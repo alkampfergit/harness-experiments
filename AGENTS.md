@@ -56,8 +56,9 @@ Design points:
 ## Technology decisions
 
 - **Bridge, indexer, MCP server, eval runner: C# (.NET).** Reasons: team language and target language, Roslyn available as a later comparison, hosted-service model for the daemon, typed Elasticsearch client. Considered and not chosen now: Rust (little gain, since time is spent in embeddings and Elasticsearch) and Node/TypeScript (equally viable; revisit if the team prefers it).
-- **Store:** Elasticsearch in Docker, bound to `127.0.0.1`, telemetry off, credentials in a git-ignored `.env`. Keep a lightweight SQLite (FTS5 + vector) implementation behind the same interface as a baseline.
-- **Embeddings and reranking:** behind `IEmbedder` and `IReranker` interfaces. Planned implementations: Ollama, and an HTTP sidecar in `tools/embed-server/` (Python, FastAPI, `sentence-transformers`) bound to `127.0.0.1`. An in-process ONNX Runtime implementation may be added later for comparison.
+- **Dev environment:** the devcontainer (`.devcontainer/`) is a Docker Compose stack: the `devcontainer` service (.NET 10, Node, Python 3.12, uv, agent CLIs, tokensave) and an `elasticsearch` service. From inside the devcontainer use `ELASTICSEARCH_URL` / `ELASTICSEARCH_USERNAME` / `ELASTICSEARCH_PASSWORD` (preset to `http://elasticsearch:9200`).
+- **Store:** Elasticsearch 9 (pinned to a specific version in `.devcontainer/docker-compose.yml`), single node, Basic license, authentication on, HTTP without TLS, port bound to `127.0.0.1`. The password defaults to `changeme`; override it with `ELASTIC_PASSWORD` in a git-ignored `.devcontainer/.env`. Keep a lightweight SQLite (FTS5 + vector) implementation behind the same interface as a baseline.
+- **Embeddings and reranking:** behind `IEmbedder` and `IReranker` interfaces. The implementation is an HTTP sidecar in `tools/embed-server/` (Python, FastAPI, `sentence-transformers`, managed with uv) bound to `127.0.0.1`. **Ollama is not used.** An in-process ONNX Runtime implementation may be added later for comparison. Note: inside the container (Docker on macOS) models run on CPU only.
 - **Embedding hygiene.** Apply each model's required prefixes, pooling, normalization and max length (e.g. `nomic-embed-text` needs `search_document:` / `search_query:`). Cache embeddings by `hash(text) + model + revision + settings`; never mix vectors from different settings in one index.
 - **Model downloads.** Weights may be downloaded from Hugging Face once (no sample content is sent); afterwards run offline (`HF_HUB_OFFLINE=1`). Pin model revisions and record model + revision in every result.
 
@@ -69,7 +70,7 @@ Design points:
 4. **Keep a baseline.** Always compare against a plain lexical baseline (BM25 or grep-like) on the same eval set.
 5. **No hand-tuned magic weights without ablation.** Any boost or heuristic must be justified by a measured gain.
 6. **Reproducible runs.** Scripts must take the sample path and commit as inputs and write results to `results/` with the technique name, sample commit and date.
-7. **Local only.** Sample code and docs must never leave the machine. Use local models (e.g. Ollama) for embeddings and any LLM step, and local services (e.g. Elasticsearch in Docker bound to localhost). No cloud embedding/LLM APIs, hosted vector stores or telemetry may receive sample content. Experiments must work offline.
+7. **Local only.** Sample code and docs must never leave the machine. Use local models (Hugging Face models served by the local Python sidecar) for embeddings and any LLM step, and local services (Elasticsearch in Docker bound to localhost). No cloud embedding/LLM APIs, hosted vector stores or telemetry may receive sample content. Experiments must work offline.
 8. **Primary store: Elasticsearch** (BM25 + dense vector in one engine). Keep store access behind a small interface so other stores can be compared.
 
 ## Conventions
