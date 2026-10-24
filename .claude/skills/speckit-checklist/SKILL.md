@@ -148,6 +148,7 @@ You **MUST** consider the user input before proceeding (if not empty).
    - Generate unique checklist filename:
      - Use short, descriptive name based on domain (e.g., `ux.md`, `api.md`, `security.md`)
      - Format: `[domain].md`
+     - NEVER use `requirements.md`: it is reserved for the built-in spec-quality checklist, whose checkboxes `/speckit-clarify` toggles automatically. For a requirements-focused review use a different name such as `requirements-review.md`
    - File handling behavior:
      - If file does NOT exist: Create new file and number items starting from CHK001
      - If file exists: Append new items to existing file, continuing from the last CHK ID (e.g., if last item is CHK015, start new items at CHK016)
