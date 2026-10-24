@@ -29,7 +29,7 @@ public class SamplePreparerTests : IDisposable
         var (repo, commit) = await SampleAsync();
         var statusBefore = await repo.StatusAsync();
 
-        var result = await Preparer.PrepareAsync(repo.Path, commit, "one");
+        var result = await Preparer.PrepareAsync(repo.Path, commit, "one", ct: TestContext.Current.CancellationToken);
 
         Assert.Equal(Path.GetFullPath(_ws.Combine("work", "one")), result.WorkDir);
         Assert.Equal(commit, result.Commit);
@@ -37,7 +37,7 @@ public class SamplePreparerTests : IDisposable
         Assert.Equal(statusBefore, await repo.StatusAsync());
         Assert.Equal(commit, await repo.Head());
         Assert.False(Directory.Exists(Path.Combine(repo.Path, ".tokensave")));
-        Assert.Equal(commit, await Git.RunAsync(result.WorkDir, ["rev-parse", "HEAD"]));
+        Assert.Equal(commit, await Git.RunAsync(result.WorkDir, ["rev-parse", "HEAD"], ct: TestContext.Current.CancellationToken));
         Assert.True(File.Exists(Path.Combine(result.WorkDir, ".polifemo-prep.json")));
         Assert.Contains(commit, File.ReadAllText(Path.Combine(result.WorkDir, ".polifemo-prep.json")));
     }
@@ -46,7 +46,7 @@ public class SamplePreparerTests : IDisposable
     public async Task Clone_keeps_bytes_exactly_and_does_not_check_out_untracked_or_ignored_files()
     {
         var (repo, commit) = await SampleAsync();
-        var result = await Preparer.PrepareAsync(repo.Path, commit, "bytes");
+        var result = await Preparer.PrepareAsync(repo.Path, commit, "bytes", ct: TestContext.Current.CancellationToken);
 
         Assert.Equal(File.ReadAllBytes(repo.File("crlf.cs")), File.ReadAllBytes(Path.Combine(result.WorkDir, "crlf.cs")));
         Assert.False(File.Exists(Path.Combine(result.WorkDir, "untracked.txt")));
@@ -57,20 +57,20 @@ public class SamplePreparerTests : IDisposable
     public async Task Clone_is_detached_and_does_not_run_hooks_from_anywhere()
     {
         var (repo, commit) = await SampleAsync();
-        var result = await Preparer.PrepareAsync(repo.Path, commit, "hooks");
+        var result = await Preparer.PrepareAsync(repo.Path, commit, "hooks", ct: TestContext.Current.CancellationToken);
 
-        var hooksPath = await Git.RunAsync(result.WorkDir, ["config", "core.hooksPath"]);
+        var hooksPath = await Git.RunAsync(result.WorkDir, ["config", "core.hooksPath"], ct: TestContext.Current.CancellationToken);
         Assert.Equal(Path.GetFullPath(_ws.Combine("work", ".empty-hooks")), hooksPath);
         Assert.Empty(Directory.GetFileSystemEntries(hooksPath));
-        Assert.Equal("HEAD", await Git.RunAsync(result.WorkDir, ["rev-parse", "--abbrev-ref", "HEAD"]));
+        Assert.Equal("HEAD", await Git.RunAsync(result.WorkDir, ["rev-parse", "--abbrev-ref", "HEAD"], ct: TestContext.Current.CancellationToken));
     }
 
     [Fact]
     public async Task Resolves_a_short_sha_or_branch_to_the_full_commit()
     {
         var (repo, commit) = await SampleAsync();
-        var viaBranch = await Preparer.PrepareAsync(repo.Path, "main", "branch");
-        var viaShort = await Preparer.PrepareAsync(repo.Path, commit[..9], "short");
+        var viaBranch = await Preparer.PrepareAsync(repo.Path, "main", "branch", ct: TestContext.Current.CancellationToken);
+        var viaShort = await Preparer.PrepareAsync(repo.Path, commit[..9], "short", ct: TestContext.Current.CancellationToken);
         Assert.Equal(commit, viaBranch.Commit);
         Assert.Equal(commit, viaShort.Commit);
     }
@@ -80,7 +80,7 @@ public class SamplePreparerTests : IDisposable
     {
         var (repo, _) = await SampleAsync();
         var ex = await Assert.ThrowsAsync<FixturePreparationException>(
-            () => Preparer.PrepareAsync(repo.Path, new string('a', 40), "nope"));
+            () => Preparer.PrepareAsync(repo.Path, new string('a', 40), "nope", ct: TestContext.Current.CancellationToken));
 
         Assert.Equal("PREP_UNKNOWN_COMMIT", ex.Code);
         Assert.Empty(Directory.Exists(_ws.Combine("work")) ? Directory.GetDirectories(_ws.Combine("work"), "nope*") : []);
@@ -92,7 +92,7 @@ public class SamplePreparerTests : IDisposable
     public async Task Option_like_or_empty_commit_is_rejected(string commit)
     {
         var (repo, _) = await SampleAsync();
-        var ex = await Assert.ThrowsAsync<FixturePreparationException>(() => Preparer.PrepareAsync(repo.Path, commit, "x"));
+        var ex = await Assert.ThrowsAsync<FixturePreparationException>(() => Preparer.PrepareAsync(repo.Path, commit, "x", ct: TestContext.Current.CancellationToken));
         Assert.Equal("PREP_UNKNOWN_COMMIT", ex.Code);
     }
 
@@ -102,7 +102,7 @@ public class SamplePreparerTests : IDisposable
         Directory.CreateDirectory(_ws.Combine("plain"));
         foreach (var path in new[] { _ws.Combine("plain"), _ws.Combine("missing") })
         {
-            var ex = await Assert.ThrowsAsync<FixturePreparationException>(() => Preparer.PrepareAsync(path, "HEAD", "x"));
+            var ex = await Assert.ThrowsAsync<FixturePreparationException>(() => Preparer.PrepareAsync(path, "HEAD", "x", ct: TestContext.Current.CancellationToken));
             Assert.Equal("PREP_NOT_A_REPO", ex.Code);
         }
         Assert.False(Directory.Exists(_ws.Combine("work", "x")));
@@ -114,7 +114,7 @@ public class SamplePreparerTests : IDisposable
         var (repo, commit) = await SampleAsync();
         repo.Write("sub/x.txt", "x");
         var ex = await Assert.ThrowsAsync<FixturePreparationException>(
-            () => Preparer.PrepareAsync(Path.Combine(repo.Path, "sub"), commit, "sub"));
+            () => Preparer.PrepareAsync(Path.Combine(repo.Path, "sub"), commit, "sub", ct: TestContext.Current.CancellationToken));
         Assert.Equal("PREP_NOT_A_REPO", ex.Code);
     }
 
@@ -122,11 +122,11 @@ public class SamplePreparerTests : IDisposable
     public async Task Existing_target_needs_replace()
     {
         var (repo, commit) = await SampleAsync();
-        await Preparer.PrepareAsync(repo.Path, commit, "twice");
-        var ex = await Assert.ThrowsAsync<FixturePreparationException>(() => Preparer.PrepareAsync(repo.Path, commit, "twice"));
+        await Preparer.PrepareAsync(repo.Path, commit, "twice", ct: TestContext.Current.CancellationToken);
+        var ex = await Assert.ThrowsAsync<FixturePreparationException>(() => Preparer.PrepareAsync(repo.Path, commit, "twice", ct: TestContext.Current.CancellationToken));
         Assert.Equal("PREP_TARGET_EXISTS", ex.Code);
 
-        var again = await Preparer.PrepareAsync(repo.Path, commit, "twice", replace: true);
+        var again = await Preparer.PrepareAsync(repo.Path, commit, "twice", replace: true, ct: TestContext.Current.CancellationToken);
         Assert.Equal(commit, again.Commit);
     }
 
@@ -141,7 +141,7 @@ public class SamplePreparerTests : IDisposable
     public async Task Names_that_could_leave_the_work_root_are_refused(string name)
     {
         var (repo, commit) = await SampleAsync();
-        var ex = await Assert.ThrowsAsync<FixturePreparationException>(() => Preparer.PrepareAsync(repo.Path, commit, name));
+        var ex = await Assert.ThrowsAsync<FixturePreparationException>(() => Preparer.PrepareAsync(repo.Path, commit, name, ct: TestContext.Current.CancellationToken));
         Assert.Equal("PREP_BAD_NAME", ex.Code);
         Assert.False(Directory.Exists(_ws.Combine("escape")));
     }
@@ -156,7 +156,7 @@ public class SamplePreparerTests : IDisposable
         commit = await repo.CommitAllAsync("b");
         var statusBefore = await repo.StatusAsync();
 
-        var result = await Preparer.PrepareAsync(repo.Path, commit, "indexed", index: true);
+        var result = await Preparer.PrepareAsync(repo.Path, commit, "indexed", index: true, ct: TestContext.Current.CancellationToken);
 
         Assert.True(result.Indexed);
         Assert.True(File.Exists(Path.Combine(result.WorkDir, ".tokensave", "tokensave.db")));

@@ -16,7 +16,7 @@ public class ResultProvenanceTests : IDisposable
         repo.Write("a.txt", "a");
         var head = await repo.CommitAllAsync();
 
-        var p = await ResultProvenance.ForWorktreeAsync(repo.Path, "7.16.0");
+        var p = await ResultProvenance.ForWorktreeAsync(repo.Path, "7.16.0", ct: TestContext.Current.CancellationToken);
 
         Assert.Equal(head, p.SourceCommit);
         Assert.Equal(head, p.SnapshotId);
@@ -29,7 +29,7 @@ public class ResultProvenanceTests : IDisposable
     public async Task A_directory_that_is_not_a_repository_is_reported_as_unknown_not_invented()
     {
         Directory.CreateDirectory(_ws.Combine("plain"));
-        var p = await ResultProvenance.ForWorktreeAsync(_ws.Combine("plain"), "7.16.0");
+        var p = await ResultProvenance.ForWorktreeAsync(_ws.Combine("plain"), "7.16.0", ct: TestContext.Current.CancellationToken);
         Assert.Equal("unknown", p.SourceCommit);
     }
 
@@ -40,7 +40,7 @@ public class ResultProvenanceTests : IDisposable
         var stdout = new StringWriter();
 
         await CliApp.RunAsync(["platform", "check", "--worktree", _ws.Path], stdout, new StringWriter(),
-            binaryVersion: _ => Task.FromResult(PlatformPins.TokenSave));
+            binaryVersion: _ => Task.FromResult(PlatformPins.TokenSave), ct: TestContext.Current.CancellationToken);
 
         var provenance = JsonDocument.Parse(stdout.ToString()).RootElement.GetProperty("provenance");
         Assert.Equal(PlatformPins.TokenSave, provenance.GetProperty("extractorVersion").GetString());

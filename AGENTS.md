@@ -88,6 +88,7 @@ Design points:
 
 - Primary language of the indexed targets: **C#**. Experiment code is C# (see Technology decisions); other languages only for helper tools under `tools/`.
 - Keep generated data (indexes, embeddings, caches) out of git; add it to `.gitignore`.
+- **Zero warnings.** `dotnet build` and `dotnet test` MUST finish with 0 warnings, in the code and in the tests. `Directory.Build.props` sets `TreatWarningsAsErrors`, so CI fails on a warning. Fix the cause (for example pass `TestContext.Current.CancellationToken` where an analyzer asks for it). Do not hide a warning with `#pragma warning disable`, `[SuppressMessage]`, `<NoWarn>` or a lowered warning level; if a suppression is truly unavoidable, scope it as narrowly as possible, put the reason in a comment next to it and mention it in the commit message.
 - Commit small, focused changes; do not commit unrelated files.
 - Do not add dependencies or services without noting why in the experiment README.
 

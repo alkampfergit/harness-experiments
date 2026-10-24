@@ -18,7 +18,7 @@ public class ActiveDatabaseResolverTests : IDisposable
         var ts = new SyntheticTokenSave { BranchMetaJson = SyntheticTokenSave.BranchMeta("main", ("main", "tokensave.db"), ("feat", "feat.db")), DbFile = "feat.db" };
         ts.Build(_ws.Path);
 
-        var r = await Resolver("feat").ResolveAsync(_ws.Path);
+        var r = await Resolver("feat").ResolveAsync(_ws.Path, ct: TestContext.Current.CancellationToken);
 
         Assert.Equal("branch-meta", r.Resolution);
         Assert.Equal("feat.db", Path.GetFileName(r.DatabasePath));
@@ -29,7 +29,7 @@ public class ActiveDatabaseResolverTests : IDisposable
     {
         new SyntheticTokenSave { BranchMetaJson = SyntheticTokenSave.BranchMeta("main", ("main", "tokensave.db")) }.Build(_ws.Path);
 
-        var r = await Resolver("topic").ResolveAsync(_ws.Path);
+        var r = await Resolver("topic").ResolveAsync(_ws.Path, ct: TestContext.Current.CancellationToken);
 
         Assert.Equal("branch-meta", r.Resolution);
         Assert.Equal("tokensave.db", Path.GetFileName(r.DatabasePath));
@@ -40,7 +40,7 @@ public class ActiveDatabaseResolverTests : IDisposable
     {
         new SyntheticTokenSave().Build(_ws.Path);
 
-        var r = await Resolver("main").ResolveAsync(_ws.Path);
+        var r = await Resolver("main").ResolveAsync(_ws.Path, ct: TestContext.Current.CancellationToken);
 
         Assert.Equal("default", r.Resolution);
         Assert.EndsWith(Path.Combine(".tokensave", "tokensave.db"), r.DatabasePath);
@@ -50,7 +50,7 @@ public class ActiveDatabaseResolverTests : IDisposable
     public async Task Malformed_json_is_TS_META_MALFORMED()
     {
         new SyntheticTokenSave { BranchMetaJson = "{ not json" }.Build(_ws.Path);
-        var ex = await Assert.ThrowsAsync<ActiveDatabaseResolutionException>(() => Resolver("main").ResolveAsync(_ws.Path));
+        var ex = await Assert.ThrowsAsync<ActiveDatabaseResolutionException>(() => Resolver("main").ResolveAsync(_ws.Path, ct: TestContext.Current.CancellationToken));
         Assert.Equal("TS_META_MALFORMED", ex.Code);
     }
 
@@ -61,7 +61,7 @@ public class ActiveDatabaseResolverTests : IDisposable
     public async Task No_usable_entry_is_TS_META_NO_DB(string json)
     {
         new SyntheticTokenSave { BranchMetaJson = json, CreateDbFile = false }.Build(_ws.Path);
-        var ex = await Assert.ThrowsAsync<ActiveDatabaseResolutionException>(() => Resolver("main").ResolveAsync(_ws.Path));
+        var ex = await Assert.ThrowsAsync<ActiveDatabaseResolutionException>(() => Resolver("main").ResolveAsync(_ws.Path, ct: TestContext.Current.CancellationToken));
         Assert.Equal("TS_META_NO_DB", ex.Code);
     }
 
@@ -70,7 +70,7 @@ public class ActiveDatabaseResolverTests : IDisposable
     {
         // tokensave.db exists, but the metadata names a different, missing file.
         new SyntheticTokenSave { BranchMetaJson = SyntheticTokenSave.BranchMeta("main", ("main", "gone.db")) }.Build(_ws.Path);
-        var ex = await Assert.ThrowsAsync<ActiveDatabaseResolutionException>(() => Resolver("main").ResolveAsync(_ws.Path));
+        var ex = await Assert.ThrowsAsync<ActiveDatabaseResolutionException>(() => Resolver("main").ResolveAsync(_ws.Path, ct: TestContext.Current.CancellationToken));
         Assert.Equal("TS_DB_MISSING", ex.Code);
     }
 
@@ -78,7 +78,7 @@ public class ActiveDatabaseResolverTests : IDisposable
     public async Task Missing_default_database_is_TS_DB_MISSING()
     {
         new SyntheticTokenSave { CreateDbFile = false }.Build(_ws.Path);
-        var ex = await Assert.ThrowsAsync<ActiveDatabaseResolutionException>(() => Resolver("main").ResolveAsync(_ws.Path));
+        var ex = await Assert.ThrowsAsync<ActiveDatabaseResolutionException>(() => Resolver("main").ResolveAsync(_ws.Path, ct: TestContext.Current.CancellationToken));
         Assert.Equal("TS_DB_MISSING", ex.Code);
     }
 
@@ -88,7 +88,7 @@ public class ActiveDatabaseResolverTests : IDisposable
     public async Task Db_file_escaping_the_tokensave_dir_is_rejected(string dbFile)
     {
         new SyntheticTokenSave { BranchMetaJson = SyntheticTokenSave.BranchMeta("main", ("main", dbFile)), CreateDbFile = false }.Build(_ws.Path);
-        var ex = await Assert.ThrowsAsync<ActiveDatabaseResolutionException>(() => Resolver("main").ResolveAsync(_ws.Path));
+        var ex = await Assert.ThrowsAsync<ActiveDatabaseResolutionException>(() => Resolver("main").ResolveAsync(_ws.Path, ct: TestContext.Current.CancellationToken));
         Assert.Equal("TS_META_NO_DB", ex.Code);
     }
 }

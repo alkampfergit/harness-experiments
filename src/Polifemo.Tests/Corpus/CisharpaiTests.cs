@@ -32,9 +32,9 @@ public class CisharpaiTests(CisharpaiCorpus corpus) : IClassFixture<CisharpaiCor
         Assert.Matches("^[0-9a-f]{40}$", p.Commit);
         Assert.False(string.IsNullOrWhiteSpace(p.License));
         Assert.StartsWith("https://", p.Url);
-        Assert.Equal(p.Commit, await Git.RunAsync(CisharpaiCorpus.SamplePath, ["rev-parse", "HEAD"]));
+        Assert.Equal(p.Commit, await Git.RunAsync(CisharpaiCorpus.SamplePath, ["rev-parse", "HEAD"], ct: TestContext.Current.CancellationToken));
 
-        var gitlink = await Git.RunAsync(CisharpaiCorpus.RepoRoot, ["ls-files", "-s", "testrepo/cisharpai"]);
+        var gitlink = await Git.RunAsync(CisharpaiCorpus.RepoRoot, ["ls-files", "-s", "testrepo/cisharpai"], ct: TestContext.Current.CancellationToken);
         Assert.StartsWith($"160000 {p.Commit}", gitlink);
         Assert.Equal(p.Commit, Read<Curated>("curated.json").Commit);
     }
@@ -46,7 +46,7 @@ public class CisharpaiTests(CisharpaiCorpus corpus) : IClassFixture<CisharpaiCor
 
         // Ignored files may exist (an IDE restoring the projects creates obj/ folders); what matters is that preparing did not change anything.
         Assert.Equal(corpus.StatusBefore, corpus.StatusAfter);
-        Assert.Equal("", await Git.RunAsync(CisharpaiCorpus.SamplePath, ["--no-optional-locks", "status", "--porcelain", "--untracked-files=all"]));
+        Assert.Equal("", await Git.RunAsync(CisharpaiCorpus.SamplePath, ["--no-optional-locks", "status", "--porcelain", "--untracked-files=all"], ct: TestContext.Current.CancellationToken));
         Assert.False(Directory.Exists(Path.Combine(CisharpaiCorpus.SamplePath, ".tokensave")));
         Assert.True(Directory.Exists(Path.Combine(corpus.Worktree, ".tokensave")));
     }

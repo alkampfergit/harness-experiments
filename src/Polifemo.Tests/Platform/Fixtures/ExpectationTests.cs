@@ -36,7 +36,7 @@ public class ExpectationTests : IDisposable
     {
         RequireTokenSave.Ensure();
         var fixture = await FixtureStates.CreateAsync(_ws, state, index: true);
-        var graph = await TokenSaveGraph.LoadAsync(fixture.Worktree);
+        var graph = await TokenSaveGraph.LoadAsync(fixture.Worktree, ct: TestContext.Current.CancellationToken);
         var path = ExpectationRecord.PathFor(state);
         var previous = File.Exists(path) ? ExpectationRecord.Load(state) : null;
         var observed = ExpectationObserver.Observe(graph, fixture.Worktree, state, fixture.Commit, previous);
@@ -91,7 +91,7 @@ public class ExpectationTests : IDisposable
 
         var result = schema.Evaluate(node.RootElement, new EvaluationOptions { OutputFormat = OutputFormat.List });
 
-        Assert.True(result.IsValid, JsonSerializer.Serialize(result.Details.Where(d => !d.IsValid).Select(d => new { d.InstanceLocation, d.Errors })));
+        Assert.True(result.IsValid, JsonSerializer.Serialize((result.Details ?? []).Where(d => !d.IsValid).Select(d => new { d.InstanceLocation, d.Errors })));
     }
 
     [Fact]

@@ -33,7 +33,7 @@ public class FixtureBuilderTests : IDisposable
     public async Task Only_content_folders_become_repository_content()
     {
         var built = await SyntheticFixture.SharedAsync();
-        var files = (await Git.RunAsync(built.RepositoryPath, ["ls-files"])).Split('\n');
+        var files = (await Git.RunAsync(built.RepositoryPath, ["ls-files"], ct: TestContext.Current.CancellationToken)).Split('\n');
 
         Assert.All(files, f => Assert.Matches(@"^(src|docs|tokensave-docs)/", f));
         Assert.DoesNotContain(files, f => f.Contains("mutations") || f.EndsWith("PROVENANCE.md"));
@@ -50,8 +50,8 @@ public class FixtureBuilderTests : IDisposable
         var built = await SyntheticFixture.SharedAsync();
         var original = Path.Combine(SyntheticFixture.Directory, path);
 
-        var expectedBlob = await Git.RunAsync(built.RepositoryPath, ["hash-object", original]);
-        var committedBlob = await Git.RunAsync(built.RepositoryPath, ["rev-parse", $"HEAD:{path}"]);
+        var expectedBlob = await Git.RunAsync(built.RepositoryPath, ["hash-object", original], ct: TestContext.Current.CancellationToken);
+        var committedBlob = await Git.RunAsync(built.RepositoryPath, ["rev-parse", $"HEAD:{path}"], ct: TestContext.Current.CancellationToken);
 
         Assert.Equal(expectedBlob, committedBlob);
         Assert.Equal(File.ReadAllBytes(original), File.ReadAllBytes(Path.Combine(built.RepositoryPath, path)));
@@ -61,7 +61,7 @@ public class FixtureBuilderTests : IDisposable
     public async Task Output_outside_an_index_folder_is_refused()
     {
         var ex = await Assert.ThrowsAsync<FixturePreparationException>(() =>
-            FixtureBuilder.BuildAsync(SyntheticFixture.Directory, Path.Combine(Path.GetTempPath(), "polifemo-not-index")));
+            FixtureBuilder.BuildAsync(SyntheticFixture.Directory, Path.Combine(Path.GetTempPath(), "polifemo-not-index"), ct: TestContext.Current.CancellationToken));
         Assert.Equal("FIX_BAD_OUT", ex.Code);
     }
 
@@ -69,7 +69,7 @@ public class FixtureBuilderTests : IDisposable
     public async Task Missing_fixture_directory_is_refused()
     {
         var ex = await Assert.ThrowsAsync<FixturePreparationException>(() =>
-            FixtureBuilder.BuildAsync(_ws.Combine("nope"), _ws.Combine("out")));
+            FixtureBuilder.BuildAsync(_ws.Combine("nope"), _ws.Combine("out"), ct: TestContext.Current.CancellationToken));
         Assert.Equal("FIX_NOT_FOUND", ex.Code);
     }
 

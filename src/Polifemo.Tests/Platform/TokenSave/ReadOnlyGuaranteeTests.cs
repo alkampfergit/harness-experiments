@@ -20,7 +20,7 @@ public class ReadOnlyGuaranteeTests : IDisposable
         var mtime = File.GetLastWriteTimeUtc(db);
 
         var report = await new CompatibilityChecker(Resolver, _ => Task.FromResult(PlatformPins.TokenSave))
-            .CheckAsync(_ws.Path, PlatformPins.TokenSave);
+            .CheckAsync(_ws.Path, PlatformPins.TokenSave, ct: TestContext.Current.CancellationToken);
 
         Assert.True(report.Ok);
         Assert.Equal(hash, SHA256.HashData(File.ReadAllBytes(db)));
@@ -38,7 +38,7 @@ public class ReadOnlyGuaranteeTests : IDisposable
         var hash = SHA256.HashData(File.ReadAllBytes(db));
 
         var report = await new CompatibilityChecker(Resolver, _ => Task.FromResult(PlatformPins.TokenSave))
-            .CheckAsync(_ws.Path, PlatformPins.TokenSave);
+            .CheckAsync(_ws.Path, PlatformPins.TokenSave, ct: TestContext.Current.CancellationToken);
 
         Assert.True(report.Ok, string.Join(", ", report.Mismatches.Select(m => m.Code)));
         Assert.Equal(hash, SHA256.HashData(File.ReadAllBytes(db)));
@@ -66,7 +66,7 @@ public class ReadOnlyGuaranteeTests : IDisposable
             AfterDatabaseRead = path => File.AppendAllText(path + "-wal", "x"),
         };
 
-        var report = await checker.CheckAsync(_ws.Path, PlatformPins.TokenSave);
+        var report = await checker.CheckAsync(_ws.Path, PlatformPins.TokenSave, ct: TestContext.Current.CancellationToken);
 
         Assert.False(report.Ok);
         Assert.Contains(report.Mismatches, m => m.Code == "TS_DB_MODIFIED");
