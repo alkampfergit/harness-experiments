@@ -28,6 +28,9 @@
         "github.copilot"
       ],
       "settings": {
+        "dotnet.defaultSolution": "Polifemo.slnx",
+        "files.watcherExclude": { "**/testrepo/**": true },
+        "search.exclude": { "testrepo": true },
         "terminal.integrated.defaultProfile.linux": "zsh",
         "terminal.integrated.profiles.linux": {
           "zsh": {
