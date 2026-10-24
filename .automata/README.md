@@ -8,4 +8,4 @@ This configuration adapts the schedule from `azdo-cli` for this repository:
 - Only `alkampfergit` and `copilot` are authorized message authors; Automata posts as `alkampferoutlook`.
 - Cron runs inside the Dev Container. Authentication must be configured inside that container.
 
-`AGENTS.md` remains authoritative. The private `samples/` corpora must never be accessed or sent to a model or external service. Runtime logs are kept in the container and are not committed.
+`AGENTS.md` remains authoritative. The private `samples/` corpora must never be accessed or sent to a model or external service. Runtime logs are kept in the container and are not committed. Automata may check out `develop` during preflight; the installed cron wrapper restores the setup branch after each clean tick so this configuration remains available until merged.
