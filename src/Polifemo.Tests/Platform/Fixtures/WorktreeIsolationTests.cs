@@ -13,7 +13,7 @@ public class WorktreeIsolationTests : IDisposable
     [Fact]
     public async Task Dirty_worktree_keeps_its_edits_and_the_original_stays_clean()
     {
-        var built = await SyntheticFixture.BuildAsync(_ws);
+        var built = await SyntheticFixture.SharedAsync();
         var main = await SyntheticFixture.CloneAsync(_ws, built, "main");
 
         var dirty = await WorktreeFactory.AddAsync(main, "dirty", SyntheticFixture.MutationDir("edit-method"));
@@ -29,7 +29,7 @@ public class WorktreeIsolationTests : IDisposable
     [Fact]
     public async Task The_worktree_is_registered_in_the_clone_and_never_in_the_source()
     {
-        var built = await SyntheticFixture.BuildAsync(_ws);
+        var built = await SyntheticFixture.SharedAsync();
         var main = await SyntheticFixture.CloneAsync(_ws, built, "main");
         var sourceStatus = await Git.RunAsync(built.RepositoryPath, ["--no-optional-locks", "status", "--porcelain=v1", "--ignored"]);
 
@@ -45,7 +45,7 @@ public class WorktreeIsolationTests : IDisposable
     [Fact]
     public async Task Reverting_the_dirty_edits_restores_the_original_tree()
     {
-        var built = await SyntheticFixture.BuildAsync(_ws);
+        var built = await SyntheticFixture.SharedAsync();
         var main = await SyntheticFixture.CloneAsync(_ws, built, "main");
         var dirty = await WorktreeFactory.AddAsync(main, "dirty", SyntheticFixture.MutationDir("edit-method"));
 
@@ -58,7 +58,7 @@ public class WorktreeIsolationTests : IDisposable
     [Fact]
     public async Task Existing_worktree_name_is_refused_and_bad_names_too()
     {
-        var built = await SyntheticFixture.BuildAsync(_ws);
+        var built = await SyntheticFixture.SharedAsync();
         var main = await SyntheticFixture.CloneAsync(_ws, built, "main");
         await WorktreeFactory.AddAsync(main, "w");
 
@@ -71,7 +71,7 @@ public class WorktreeIsolationTests : IDisposable
     public async Task Each_worktree_has_its_own_tokensave_index_with_its_own_content()
     {
         RequireTokenSave.Ensure();
-        var built = await SyntheticFixture.BuildAsync(_ws);
+        var built = await SyntheticFixture.SharedAsync();
         var main = await SyntheticFixture.CloneAsync(_ws, built, "main", index: true);
         var dirty = await WorktreeFactory.AddAsync(main, "dirty", SyntheticFixture.MutationDir("edit-method"));
         var init = await Polifemo.Platform.Processes.ProcessRunner.RunAsync("tokensave", ["init", dirty.Path], dirty.Path);

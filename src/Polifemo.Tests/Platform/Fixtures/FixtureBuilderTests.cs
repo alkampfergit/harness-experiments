@@ -32,7 +32,7 @@ public class FixtureBuilderTests : IDisposable
     [Fact]
     public async Task Only_content_folders_become_repository_content()
     {
-        var built = await SyntheticFixture.BuildAsync(_ws);
+        var built = await SyntheticFixture.SharedAsync();
         var files = (await Git.RunAsync(built.RepositoryPath, ["ls-files"])).Split('\n');
 
         Assert.All(files, f => Assert.Matches(@"^(src|docs|tokensave-docs)/", f));
@@ -47,7 +47,7 @@ public class FixtureBuilderTests : IDisposable
     [InlineData("src/Infrastructure/Utf16Marker.cs")]
     public async Task Encodings_and_line_endings_survive_git_byte_for_byte(string path)
     {
-        var built = await SyntheticFixture.BuildAsync(_ws);
+        var built = await SyntheticFixture.SharedAsync();
         var original = Path.Combine(SyntheticFixture.Directory, path);
 
         var expectedBlob = await Git.RunAsync(built.RepositoryPath, ["hash-object", original]);

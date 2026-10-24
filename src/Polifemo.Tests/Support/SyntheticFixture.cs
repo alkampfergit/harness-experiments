@@ -23,6 +23,25 @@ public static class SyntheticFixture
     public static Task<BuiltFixture> BuildAsync(TestWorkspace ws, string name = "source") =>
         FixtureBuilder.BuildAsync(Directory, ws.Combine("fixtures", name));
 
+    private static readonly Lazy<Task<BuiltFixture>> Shared = new(BuildSharedAsync);
+
+    /// <summary>
+    /// The fixture repository, built once per test process. Clones only read it, so tests can share it;
+    /// use <see cref="BuildAsync"/> when a test needs a private copy or tests the build itself.
+    /// </summary>
+    public static Task<BuiltFixture> SharedAsync() => Shared.Value;
+
+    private static async Task<BuiltFixture> BuildSharedAsync()
+    {
+        var root = System.IO.Path.Combine(TestWorkspace.RepoRoot(), ".index", "test", "_shared", Environment.ProcessId.ToString());
+        var built = await FixtureBuilder.BuildAsync(Directory, System.IO.Path.Combine(root, "synthetic-csharp"));
+        AppDomain.CurrentDomain.ProcessExit += (_, _) =>
+        {
+            try { System.IO.Directory.Delete(root, recursive: true); } catch (IOException) { }
+        };
+        return built;
+    }
+
     public static async Task<string> CloneAsync(TestWorkspace ws, BuiltFixture built, string name, bool index = false)
     {
         var prepared = await new SamplePreparer(ws.Combine("work")).PrepareAsync(built.RepositoryPath, built.Commit, name, index);
@@ -52,7 +71,7 @@ public static class FixtureStates
 
     public static async Task<FixtureState> CreateAsync(TestWorkspace ws, string state, bool index)
     {
-        var built = await SyntheticFixture.BuildAsync(ws, "src-" + state);
+        var built = await SyntheticFixture.SharedAsync();
         var work = await SyntheticFixture.CloneAsync(ws, built, state);
         var commit = built.Commit;
         if (state != "base")
