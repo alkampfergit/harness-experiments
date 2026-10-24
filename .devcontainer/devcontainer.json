@@ -38,6 +38,5 @@
     }
   },
   "postCreateCommand": "bash .devcontainer/postcreate.sh",
-  "postStartCommand": "bash .devcontainer/start-do-work-cron.sh",
   "remoteUser": "vscode"
 }
