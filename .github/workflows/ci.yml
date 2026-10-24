@@ -95,7 +95,7 @@ jobs:
               ;;
           esac
           archive="$RUNNER_TEMP/tokensave.tar.gz"
-          curl --fail --silent --show-error --location \
+          curl --proto "=https" --tlsv1.2 --fail --silent --show-error --location \
             "https://github.com/aovestdipaperino/tokensave/releases/download/v7.16.0/tokensave-v7.16.0-${tokensave_arch}.tar.gz" \
             --output "$archive"
           echo "$tokensave_sha256  $archive" | sha256sum --check --status
@@ -124,7 +124,7 @@ jobs:
 
       - name: Publish test report
         if: ${{ !cancelled() }}
-        uses: EnricoMi/publish-unit-test-result-action@v2
+        uses: EnricoMi/publish-unit-test-result-action@7622c5bf3d112a72ab4fa3951c2aa5723d8ab92d # v2
         with:
           files: TestResults/**/*.trx
           check_name: Unit and integration test results
