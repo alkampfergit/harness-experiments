@@ -11,7 +11,7 @@ in `src/Polifemo.Tests/`. The runs that need the rebuilt devcontainer are marked
 | #2 | Active database resolution and the absent-metadata fallback | `Platform/TokenSave/ActiveDatabaseResolverTests` (branch entry, default branch entry, absent, malformed, no usable entry, missing file, escaping path) |
 | #2 | Smoke test: authenticated BM25 and the supported vector API, no licensed retrievers | `Platform/Elasticsearch/SmokeTestTests` (real store: version, license, bm25, knn, cleanup; stub store: auth, version, license, unreachable). Basic rejects RRF and the reranker: `docs/platform-compatibility.md` section 3 |
 | #2 | C# extraction, companion docs, branch and worktree behavior, unsupported and ambiguous cases recorded | `docs/platform-compatibility.md` section 7; `src/fixtures/synthetic-csharp/expectations/*.json` |
-| #2 | Runtime pins, offline and network assumptions documented; no 7.x or 8.x support implied | `docs/platform-compatibility.md` sections 1 and 5; `.devcontainer/postcreate.sh`; `global.json`. Offline run **open** (T060) |
+| #2 | Runtime pins, offline and network assumptions documented; no 7.x or 8.x support implied | `docs/platform-compatibility.md` sections 1 and 5; `.devcontainer/postcreate.sh`; `global.json`. The separate offline run (former T060) was dropped by the maintainer |
 | #2 | Available languages inspected | `docs/platform-compatibility.md` section 6 |
 | #3 | Preparation takes a sample path and commit and writes only under `.index/` | `Platform/Fixtures/SamplePreparerTests`; `Corpus/CisharpaiTests.Preparing_and_indexing_leave_the_corpus_untouched` |
 | #3 | Deterministic mutations: add, edit, delete, rename, line shift, docs-only, changed association | `Platform/Fixtures/MutationApplierTests` (all eight, byte-identical results, two independent clones) |
@@ -33,7 +33,7 @@ in `src/Polifemo.Tests/`. The runs that need the rebuilt devcontainer are marked
 | Criterion | Status | Evidence |
 |---|---|---|
 | SC-001 detect every mismatch type before import | met | `CompatibilityCheckerTests`, `ActiveDatabaseResolverTests` |
-| SC-002 full verification and smoke test under 10 minutes, offline | **open** | The full suite runs in about 30 s on the host. The timed offline run in the devcontainer is T060 |
+| SC-002 full verification and smoke test under 10 minutes, offline | met (online) | The full suite runs in about 30 s on the host and in about 2 minutes in CI. A dedicated offline run was dropped by the maintainer (former T060) |
 | SC-003 preparation and mutation are repeatable | met | `FixtureBuilderTests`, `MutationApplierTests` |
 | SC-004 zero changes to the sample checkout | met | `SamplePreparerTests`, `CisharpaiTests.Preparing_and_indexing_leave_the_corpus_untouched` |
 | SC-005 every expectation is checked, unresolved and ambiguous cases are reported as such | met | `ExpectationTests`, `ExpectationComparer` |

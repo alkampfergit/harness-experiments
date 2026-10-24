@@ -1,8 +1,8 @@
 # Platform compatibility record
 
-Status: **complete for this feature, except two runs that need the rebuilt devcontainer** (tasks T059
-and T060 of `specs/001-platform-foundations/tasks.md`): the verification inside the devcontainer with
-the Compose Elasticsearch service, and the offline run with the 10-minute budget. Everything below was
+Status: **complete for this feature, except one run that needs the rebuilt devcontainer** (task T059
+of `specs/001-platform-foundations/tasks.md`): the verification inside the devcontainer with
+the Compose Elasticsearch service. The dedicated offline run was dropped by the maintainer. Everything below was
 observed on a macOS host with TokenSave 7.16.0 and a local Elasticsearch 9.5.5 (Basic).
 
 Machine-checked parts of this record: `polifemo platform check` (TokenSave) and
@@ -90,8 +90,8 @@ the configured localhost store), fixture preparation and every test.
 
 TokenSave uploads: `tokensave disable-upload-counter` runs in `postcreate.sh`, and
 `report_savings` is set to `false` in the project's `.tokensave/config.json`. Constitution I asks
-for network controls and not only counters, so the offline check in quickstart step 6 (egress
-disabled) remains the actual proof. It is still to be recorded (task T060).
+for network controls and not only counters, so an egress-disabled run would be the actual proof;
+the maintainer dropped that run, so it is not recorded.
 
 ## 6. TokenSave languages
 

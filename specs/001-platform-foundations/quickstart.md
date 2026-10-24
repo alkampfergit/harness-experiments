@@ -86,9 +86,7 @@ Expected:
 
 ## 6. Offline run (SC-002)
 
-Disconnect the devcontainer from external networks while keeping the Compose network, for example with `docker network disconnect bridge <container>` or by blocking egress. Then repeat steps 2 to 5 and time them.
-
-Expected: everything passes in under 10 minutes, and no command tries to download anything.
+Dropped by the maintainer: no dedicated offline run is required. The commands above only talk to localhost.
 
 ## 7. Nothing private committed (SC-007)
 
