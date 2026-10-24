@@ -147,6 +147,8 @@ If critical info missing (e.g., ratification date truly unknown), insert `TODO(<
 
 Write only `.specify/memory/constitution.md`; do not create or modify template source files.
 
+If the current constitution's governance section requires an amendment of this kind to update other files in the same change (for example, a policy-changing amendment that MUST also update `AGENTS.md`), STOP before writing the constitution. Explain that the amendment needs a coordinated change outside this command, list the files that must change together, and do not report the amendment as complete.
+
 ## Post-Execution Checks
 
 **Check for extension hooks (after constitution update)**:

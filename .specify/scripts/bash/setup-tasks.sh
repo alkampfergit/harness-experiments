@@ -34,6 +34,12 @@ if [[ ! -f "$IMPL_PLAN" ]]; then
     exit 1
 fi
 
+if [[ ! -s "$IMPL_PLAN" ]]; then
+    echo "ERROR: plan.md is empty in $FEATURE_DIR" >&2
+    echo "Populate it, or remove the empty file and rerun /speckit-plan with a valid plan template." >&2
+    exit 1
+fi
+
 if [[ ! -f "$FEATURE_SPEC" ]]; then
     echo "ERROR: spec.md not found in $FEATURE_DIR" >&2
     echo "Run /speckit-specify first to create the feature structure." >&2

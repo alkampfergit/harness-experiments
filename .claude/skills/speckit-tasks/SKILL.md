@@ -142,7 +142,7 @@ The tasks.md should be immediately executable - each task must be specific enoug
 
 **CRITICAL**: Tasks MUST be organized by user story to enable independent implementation and testing.
 
-**Tests are OPTIONAL**: Only generate test tasks if explicitly requested in the feature specification or if user requests TDD approach.
+**Tests are OPTIONAL unless required by the constitution**: Generate test tasks if explicitly requested in the feature specification, if the user requests a TDD approach, or if `.specify/memory/constitution.md` mandates test coverage for the areas this feature touches. Constitution-required tests are mandatory and count as "requested" everywhere below.
 
 ### Checklist Format (REQUIRED)
 

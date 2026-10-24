@@ -96,7 +96,8 @@ Given that feature description, do this:
    **Create the directory and spec file**:
    - `mkdir -p SPECIFY_FEATURE_DIRECTORY`
    - Resolve the active `spec-template` through the Spec Kit preset/template resolution stack (equivalent to `specify preset resolve spec-template`)
-   - Copy the resolved `spec-template` file to `SPECIFY_FEATURE_DIRECTORY/spec.md` as the starting point
+   - If `SPECIFY_FEATURE_DIRECTORY/spec.md` already exists (for example, a refinement run on an existing feature), do NOT copy the template over it: read the existing spec and update it in place, preserving existing requirements and any answers recorded by `/speckit-clarify`
+   - Otherwise, copy the resolved `spec-template` file to `SPECIFY_FEATURE_DIRECTORY/spec.md` as the starting point
    - Set `SPEC_FILE` to `SPECIFY_FEATURE_DIRECTORY/spec.md`
    - Persist the resolved path to `.specify/feature.json`:
      ```json
