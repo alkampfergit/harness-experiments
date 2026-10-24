@@ -20,6 +20,21 @@ public static partial class ExpectationObserver
     public static ExpectationRecord Observe(
         TokenSaveGraph graph, string worktree, string state, string commit, ExpectationRecord? previous)
     {
+        var (symbols, observed) = Extract(graph);
+        var relationships = Merge(observed, previous, state).ToList();
+
+        return new ExpectationRecord(
+            1, "synthetic-csharp", state, commit, PlatformPins.TokenSave,
+            Files(graph, worktree, previous), symbols, relationships, DocAssociations(graph, worktree));
+    }
+
+    /// <summary>
+    /// The symbols (1-based extents) and the resolved, unresolved and ambiguous relationships of a graph. This is the one
+    /// place that decides what counts as unresolved: a call to a name defined in the same project that TokenSave left
+    /// without an edge or a candidate list.
+    /// </summary>
+    public static (List<ExpSymbol> Symbols, List<ExpRelationship> Relationships) Extract(TokenSaveGraph graph)
+    {
         var symbolNodes = graph.Symbols.Where(s => !NotSymbols.Contains(s.Kind)).ToList();
         var symbols = symbolNodes
             .Select(s => new ExpSymbol(
@@ -53,11 +68,7 @@ public static partial class ExpectationObserver
             .Select(u => new ExpRelationship(Ref(u.FromNodeId), u.ReferenceName, "calls", "unresolved"))
             .DistinctBy(r => (r.From, r.To)));
 
-        relationships = Merge(relationships, previous, state).ToList();
-
-        return new ExpectationRecord(
-            1, "synthetic-csharp", state, commit, PlatformPins.TokenSave,
-            Files(graph, worktree, previous), symbols, relationships, DocAssociations(graph, worktree));
+        return (symbols, relationships);
     }
 
     /// <summary>Symbol reference: <c>path#name</c>, with <c>#k</c> when several symbols of a file share the name.</summary>

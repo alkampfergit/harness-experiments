@@ -1,4 +1,5 @@
 using System.CommandLine;
+using Polifemo.Platform;
 using Polifemo.Platform.Fixtures;
 
 namespace Polifemo.Cli;
@@ -42,8 +43,10 @@ public static class FixtureCommands
             var prepared = await new SamplePreparer(workRoot()).PrepareAsync(
                 parse.GetValue(sample)!, parse.GetValue(commit)!, parse.GetValue(name)!,
                 parse.GetValue(index), parse.GetValue(replace), ct);
+            var provenance = await ResultProvenance.ForWorktreeAsync(prepared.WorkDir, PlatformPins.TokenSave, prepared.Commit, ct);
             return (ExitCodes.Ok, (object)new
             {
+                provenance,
                 workDir = prepared.WorkDir,
                 commit = prepared.Commit,
                 sourceUnchanged = prepared.SourceUnchanged,

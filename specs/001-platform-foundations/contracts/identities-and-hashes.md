@@ -9,8 +9,11 @@ This contract covers FR-019 to FR-023 and FR-027. The types marked (code) live i
 
 Normalization:
 - **path**: relative to the repository root, `/` separators, no leading `./`, case kept, NFC.
-- **signature**: TokenSave `signature` with whitespace runs collapsed to one space and trimmed. An empty signature becomes `""`.
+- **signature**: the declaration part of the TokenSave `signature`. TokenSave 7.16.0 puts an expression body into the signature (`public Money Add(Money other) => new(...)`), so everything from the first `=>` outside brackets is cut: editing a body must not change an identity. Whitespace runs are then collapsed to one space and the result is trimmed. An empty signature becomes `""`.
 - **kind**: the TokenSave kind string as-is (the observed set is recorded in the compatibility record).
+- **qualifiedName**: the in-file name. TokenSave writes `<path>::<path>::Type::member` for code and `<path>::Title` for Markdown, with no namespace and no generic arguments. The `<path>::` prefixes are removed (`Money::Add`, `Cache::Entry`). The path is a separate input of the key, so partial classes in different files differ by path.
+- **lines**: TokenSave reports 0-based, inclusive `start_line`/`end_line`. Expectation records and provenance use 1-based inclusive lines. Lines never feed a key or a hash.
+- **chunk search fields** (used by the identity tests; the real chunker may add fields): `kind`, `qualifiedName`, normalized `signature`, the symbol's source text (line endings normalized), `docLinks` (sorted paths of the associated documents) and `docText` (their bodies without front matter). The embedding input is `"{kind} {qualifiedName}\n{signature}\n{text}"`: no path and no document excerpt, so a rename or a documentation change keeps it.
 
 ## Keys and hashes
 
@@ -36,6 +39,8 @@ Note on the embedding cache key: it is not defined here. It is `EmbeddingInputHa
 - **Nested generic types with the same simple name**: `qualifiedName` keeps them apart. A test asserts this.
 
 ## Profile compatibility (code)
+
+`EmbeddingProfile` validates its fields on construction: `maxTokens` and `dimension` are positive, and `revision` is a 40-hex commit SHA. A branch or tag such as `main` is rejected because it can move.
 
 `EmbeddingProfile.EnsureSameSpace(query, index)` throws `EmbeddingProfileMismatchException(Code = "EMB_PROFILE_MISMATCH", expected, actual)` when the profile ids differ. Vector search callers must call it before issuing a query. The test asserts that the exception is thrown and that no result is returned.
 

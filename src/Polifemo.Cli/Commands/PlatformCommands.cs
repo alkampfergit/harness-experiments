@@ -33,7 +33,18 @@ public static class PlatformCommands
                 ? new CompatibilityChecker()
                 : new CompatibilityChecker(new ActiveDatabaseResolver(), binaryVersion);
             var report = await checker.CheckAsync(dir, parse.GetValue(expect)!, ct);
-            return (report.Ok ? ExitCodes.Ok : ExitCodes.CheckFailed, (object)report);
+            var provenance = await ResultProvenance.ForWorktreeAsync(dir, report.TokensaveBinaryVersion ?? "unknown", ct: ct);
+            return (report.Ok ? ExitCodes.Ok : ExitCodes.CheckFailed, (object)new
+            {
+                ok = report.Ok,
+                report.TokensaveBinaryVersion,
+                report.IndexVersion,
+                report.DatabasePath,
+                report.Resolution,
+                report.Mismatches,
+                report.Warnings,
+                provenance,
+            });
         }));
         return command;
     }

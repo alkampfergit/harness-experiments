@@ -19,6 +19,8 @@ Exit codes are the same for every command:
 
 This reads `<dir>/.tokensave/` only and never writes to it. `--expect-tokensave` defaults to the embedded pin, 7.16.0.
 
+Every result that describes a worktree carries `provenance` (`SnapshotProvenance`: scope, snapshot id, source commit, extractor version). `source commit` is the worktree's HEAD, or `"unknown"` when the folder is not itself a repository root; a commit is never borrowed from an enclosing repository.
+
 Output:
 
 ```json
@@ -29,7 +31,8 @@ Output:
   "databasePath": ".tokensave/tokensave.db",
   "resolution": "branch-meta",
   "mismatches": [{ "code": "TS_INDEX_VERSION_MISMATCH", "subject": "metadata.last_full_index_version", "expected": "7.16.0", "actual": "7.15.0" }],
-  "warnings": [{ "code": "TS_EXTRA_TABLE", "subject": "read_cache" }]
+  "warnings": [{ "code": "TS_EXTRA_TABLE", "subject": "read_cache" }],
+  "provenance": { "scope": { "authorizationBoundary": "local", "repositoryId": "work", "branchRef": "detached", "worktreeId": "work", "snapshotId": "<head>" }, "snapshotId": "<head>", "sourceCommit": "<head>", "extractorVersion": "7.16.0" }
 }
 ```
 
@@ -51,7 +54,7 @@ This turns plain fixture files into a git repository with fixed dates. Output: `
 
 This clones into `.index/work/<name>/` as described in [research R5](../research.md#r5-preparing-a-sample-without-touching-it). `--index` also runs the pinned `tokensave init` in the clone. The command refuses any `--name` that resolves outside `.index/work/`.
 
-Output: `{ workDir, commit, sourceUnchanged: true, indexed }`
+Output: `{ provenance, workDir, commit, sourceUnchanged: true, indexed }`
 
 Errors:
 - `PREP_NOT_A_REPO` and `PREP_UNKNOWN_COMMIT` create nothing.
