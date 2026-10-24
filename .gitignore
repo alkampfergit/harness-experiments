@@ -1,0 +1,16 @@
+# Sample corpora: private submodules, never committed to this repo
+samples/
+
+# Generated data (indexes, embeddings, caches)
+.index/
+data/
+
+# Local environment
+.env
+.env.*
+*.local
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
