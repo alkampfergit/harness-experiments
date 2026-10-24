@@ -73,6 +73,11 @@ Design points:
 7. **Local only.** Sample code and docs must never leave the machine. Use local models (Hugging Face models served by the local Python sidecar) for embeddings and any LLM step, and local services (Elasticsearch in Docker bound to localhost). No cloud embedding/LLM APIs, hosted vector stores or telemetry may receive sample content. Experiments must work offline.
 8. **Primary store: Elasticsearch** (BM25 + dense vector in one engine). Keep store access behind a small interface so other stores can be compared.
 
+## Spec Kit workflow
+
+- Features developed with Spec Kit (`/speckit-*` skills, artifacts under `specs/`) MUST also satisfy the gates in `.specify/memory/constitution.md`: the Constitution Check in every spec and plan, the required sync/publication test coverage and the correctness gates. These gates are defined only there and apply in addition to this file.
+- The constitution restates this file in a form Spec Kit can check. If the two conflict, this file prevails and the constitution is amended to match. A constitution amendment that changes repository policy MUST update this file in the same change.
+
 ## Conventions
 
 - Primary language of the indexed targets: **C#**. Experiment code is C# (see Technology decisions); other languages only for helper tools under `tools/`.
