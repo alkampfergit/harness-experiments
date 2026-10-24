@@ -87,7 +87,8 @@ You **MUST** consider the user input before proceeding (if not empty).
 
 ## Execution Steps
 
-1. **Setup**: Run `.specify/scripts/bash/check-prerequisites.sh --json --template checklist-template` from repo root and parse JSON for FEATURE_DIR, AVAILABLE_DOCS list, and TEMPLATE_CONTENT.
+1. **Setup**: Run `.specify/scripts/bash/check-prerequisites.sh --json --paths-only` from repo root and parse JSON for FEATURE_DIR. Then run `.specify/scripts/bash/resolve-template.sh checklist-template --json` and parse TEMPLATE_CONTENT. Do not use the validating mode of `check-prerequisites.sh` here: it requires `plan.md`, which would block checklists for spec-only features.
+   - Build AVAILABLE_DOCS by checking which of `spec.md`, `plan.md` and `tasks.md` exist in FEATURE_DIR. If `spec.md` is missing, STOP and instruct the user to run `/speckit-specify` first.
    - All file paths must be absolute.
    - For single quotes in args like "I'm Groot", use escape syntax: e.g 'I'\''m Groot' (or double-quote if possible: "I'm Groot").
 
