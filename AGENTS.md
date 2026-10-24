@@ -15,7 +15,11 @@ AGENTS.md        # this file (authoritative)
 CLAUDE.md        # pointer to AGENTS.md only
 samples/         # git submodules (git-ignored): the code used as test corpora
 testrepo/        # committed git submodules of PUBLIC repositories, used only by automated tests
-src/             # .NET solution: bridge, indexer, MCP server, shared abstractions
+Polifemo.slnx    # the .NET solution (SDK pinned in global.json)
+src/             # Polifemo.Contracts, Polifemo.Platform, Polifemo.Cli (the `polifemo` tool),
+                 # Polifemo.Tests (one test project, folders named after the section tested),
+                 # fixtures/ (plain-file test repositories, never compiled)
+docs/            # technology.md, backlog/, platform-compatibility.md (pinned versions and observed behavior)
 tools/           # helper processes (e.g. tools/embed-server/ Python sidecar)
 eval/            # queries + gold labels + metric runners (shared by all experiments)
 experiments/     # one folder per experiment/technique

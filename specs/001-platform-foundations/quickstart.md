@@ -59,13 +59,13 @@ for run in a b; do
 done
 git -C .index/work/synth-a rev-parse HEAD; git -C .index/work/synth-b rev-parse HEAD
 git -C .index/fixtures/synthetic-csharp status --porcelain | diff /tmp/before -
-dotnet run --project src/Polifemo.Cli -- fixture worktree --work .index/work/synth-a --name dirty --dirty-from edit-method
+dotnet run --project src/Polifemo.Cli -- fixture worktree --work .index/work/synth --name dirty --dirty-from edit-method
 ```
 
 Expected:
 - Both HEADs are identical.
 - The `diff` is empty.
-- The dirty worktree has uncommitted changes, and `synth-a` is unaffected.
+- The dirty worktree has uncommitted changes, and `synth` (the clean base clone it came from) is unaffected.
 - `fixture prepare` with an unknown commit exits with 1 and `PREP_UNKNOWN_COMMIT`, and no directory is created.
 
 The same holds for `--sample testrepo/cisharpai --commit 8103c0d822211a60bb31815a28d354578be6bd6c`: `git -C testrepo/cisharpai status --porcelain` stays empty, and there is no `testrepo/cisharpai/.tokensave`.

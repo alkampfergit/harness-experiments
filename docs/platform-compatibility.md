@@ -1,8 +1,9 @@
 # Platform compatibility record
 
-Status: **partial**. The pins, licenses, network assumptions and the Elasticsearch capability
-findings are final for this feature. The sections marked *pending* are completed after the
-synthetic fixture exists (task T056 of `specs/001-platform-foundations/tasks.md`).
+Status: **complete for this feature, except two runs that need the rebuilt devcontainer** (tasks T059
+and T060 of `specs/001-platform-foundations/tasks.md`): the verification inside the devcontainer with
+the Compose Elasticsearch service, and the offline run with the 10-minute budget. Everything below was
+observed on a macOS host with TokenSave 7.16.0 and a local Elasticsearch 9.5.5 (Basic).
 
 Machine-checked parts of this record: `polifemo platform check` (TokenSave) and
 `polifemo platform smoke` (Elasticsearch). Where this document and those checks disagree, the
@@ -46,6 +47,11 @@ Observed on 7.16.0: the database has many tables that the adapter does not read 
 vector, memory, `read_cache`, `node_fingerprints`, `trait_dispatch_callers`) and 14 extra columns in
 `nodes` plus `unresolved_refs.id`. They are reported as warnings (`TS_EXTRA_TABLE`,
 `TS_EXTRA_COLUMN`), never silently ignored.
+
+Reading a database that TokenSave left in WAL mode (no `-wal` or `-shm` file present) makes SQLite
+create empty `-wal` and `-shm` files next to it, even with `Mode=ReadOnly`. The database bytes are
+unchanged (checked by hash). The check treats a missing and an empty `-wal` as the same, so this is
+not reported as `TS_DB_MODIFIED`; any real change to the main file or to a non-empty log still is.
 
 ## 3. Elasticsearch capabilities under Basic (verified)
 
@@ -94,14 +100,70 @@ disabled) remains the actual proof. It is still to be recorded (task T060).
 
 ## 7. Extraction, documentation association, branches and worktrees
 
-*Pending (T056).* This part is filled from observations on the synthetic fixture:
-- C# node kinds and edge kinds actually extracted;
-- how sidecar and central documentation is associated (`docs_dir`, `applies_to`);
-- branch and worktree behavior, including per-branch database files;
-- unsupported and ambiguous cases, including the UTF-16 outcome and extension-method and
-  dependency-injection calls.
+Observed with TokenSave 7.16.0 on the synthetic fixture (`src/fixtures/synthetic-csharp`, recorded in
+`expectations/*.json`) and on the pinned public corpus `testrepo/cisharpai` (445 C# files, 602 indexed
+files, about 4.4k call edges; indexing takes about 2 s).
 
-Observed so far: `.tokensave/branch-meta.json` has the shape
-`{ default_branch, branches: { <name>: { db_file, created_at, last_synced_at } } }`, and a fresh
-`tokensave init` in a git repository creates one entry for the current branch with
-`db_file: "tokensave.db"`.
+### Symbol kinds and relationships
+
+| | Fixture | Corpus (additionally) |
+|---|---|---|
+| node kinds | `class`, `inner_class`, `interface`, `record`, `enum`, `enum_variant`, `method`, `constructor`, `csharp_property`, `field`, `module` (a Markdown heading), `doc`, `file`, `namespace`, `use` | `annotation_usage`, `const`, `struct` |
+| edge kinds | `calls`, `uses`, `implements`, `documents` | `annotates`, `extends` |
+
+Representation details the identity code depends on:
+- `qualified_name` is `<path>::<path>::Type::member` for code and `<path>::Title` for Markdown. It has no
+  namespace and no generic arguments. The in-file name is what is left after the path prefixes.
+- Partial classes are not merged: each file has its own `class` node, so the path tells them apart.
+- Nested types with the same simple name differ by their parent (`Cache::Entry`, `Index::Entry`).
+- Overloads share a qualified name. Only the signature and the source order tell them apart.
+- `start_line` and `end_line` are **0-based** and inclusive. A method that has an attribute starts at the
+  attribute line. A class does not start at its XML documentation comment.
+- The `signature` of an expression-bodied member **contains the body** (`public Money Add(Money other) => new(...)`).
+  Identities therefore cut the signature at the first `=>` outside brackets.
+- `node_id` values are hashes that are not meaningful across runs; they are provenance only.
+
+### Documentation association
+
+- **Sidecar:** `Foo.readme.md` next to `Foo.cs` documents that file. `Order.readme.md` documents both
+  `Order.cs` and `Order.Totals.cs`. TokenSave creates a `doc` node and `documents` edges.
+- **Central:** a Markdown file under `docs_dir` (`tokensave-docs/`) with an `applies_to` list in its front
+  matter documents the files that match. The fixture lists literal paths.
+- **Stale:** an `applies_to` entry that matches no file produces neither a `doc` node nor an edge. The
+  document is indexed as plain Markdown only, so staleness is visible only as a missing association.
+- **Plain Markdown** outside `docs_dir` without an association (`docs/architecture.md`) is indexed as a
+  `module` node for its heading and linked to nothing.
+
+### Branches and worktrees
+
+- `.tokensave/branch-meta.json` is `{ default_branch, branches: { <name>: { db_file, created_at, last_synced_at } } }`.
+  A fresh `tokensave init` writes one entry with `db_file: "tokensave.db"`. A detached checkout still gets a
+  `main` entry.
+- Each working directory has its own `.tokensave/` and database. A second git worktree of the same clone, with
+  uncommitted edits, indexes its own content: the `content_hash` of the edited file differs between the two
+  databases and every untouched file has the same hash.
+- `tokensave init` adds `.tokensave/` to the repository's `.git/info/exclude`. Preparing a sample therefore
+  indexes a clone under `.index/work/` and never the sample itself.
+- A global git hook installed by `tokensave install` can run during clone and checkout. All git calls in this
+  project run with the user and system configuration disabled and an empty `core.hooksPath`.
+
+### Unsupported and ambiguous cases
+
+Recorded in the expectation records with their status. None of them is counted as a pass.
+
+| Case | Observed behavior |
+|---|---|
+| Extension-method call (`"Spring Sale".ToSlug()`, `services.AddOrders()`, a generic `AddScoped<..>()`) | `unresolved`: the reference text is kept, no edge. |
+| Object creation (`new Order(...)`) | `unresolved`: not linked to a constructor. |
+| Overload chosen by argument type (`Money.Add(decimal)`) | `unsupported`: the call is linked to the **first** overload, `Add(Money)`. The edge exists but is wrong. |
+| Call on an interface-typed variable that the DI container fills | Linked to the interface member only, never to an implementation (`unsupported` for the implementation). |
+| Call whose name exists on several types | `ambiguous`. Candidates are chosen **by name only**: `List<OrderLine>.Add` is reported as ambiguous between the two `Money.Add` overloads, and `List<string>.AddRange` in the corpus between the `InMemoryRetriever.AddRange` overloads. The candidates can be unrelated to the real target. |
+| Overload calling its sibling (`Format(order, "EUR")`) | `ambiguous`, and the candidate list includes the caller itself. |
+| File moved to another folder | After the `rename-file` mutation, `Order.Total` is no longer linked to `OrderLine.LineTotal`, although the code is unchanged. The result is deterministic. A move can therefore drop cross-file edges until something re-resolves them. |
+| UTF-8 with BOM, CRLF, ISO-8859-1 and **UTF-16 LE with BOM** files | All four are extracted with correct symbols. |
+
+Tree-sitter style extraction is not compiler-resolved: these relationships must never be presented as
+exact (Constitution VI).
+
+No folder under `experiments/` is created by this feature (Constitution VII: folders only when a
+deliverable needs them).
