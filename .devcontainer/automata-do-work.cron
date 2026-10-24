@@ -1,0 +1,3 @@
+# One Automata work tick every five minutes inside the dev container.
+# /etc/cron.d format includes the user field after the schedule.
+*/5 * * * * vscode /usr/local/bin/automata-do-work-cron >> /home/vscode/.local/state/automata-do-work/cron.log 2>&1
