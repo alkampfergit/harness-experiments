@@ -1,0 +1,11 @@
+{
+  "name": "add-file",
+  "base": "initial",
+  "ops": [
+    {
+      "op": "write",
+      "path": "src/Domain/Discount.cs",
+      "payloadFile": "Discount.cs"
+    }
+  ]
+}

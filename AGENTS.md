@@ -14,6 +14,7 @@ Each experiment explores a different technique (lexical/BM25, embeddings, hybrid
 AGENTS.md        # this file (authoritative)
 CLAUDE.md        # pointer to AGENTS.md only
 samples/         # git submodules (git-ignored): the code used as test corpora
+testrepo/        # committed git submodules of PUBLIC repositories, used only by automated tests
 src/             # .NET solution: bridge, indexer, MCP server, shared abstractions
 tools/           # helper processes (e.g. tools/embed-server/ Python sidecar)
 eval/            # queries + gold labels + metric runners (shared by all experiments)
@@ -29,6 +30,7 @@ Create folders only when they are needed; do not add empty scaffolding.
 - `samples/` is **git-ignored** because the sample repos may be private. Neither their content nor their URLs are committed here. To add one locally use `git submodule add -f <url> samples/<name>`, and do not commit the resulting `.gitmodules` or gitlink changes. Keep a local, untracked list of the samples used (`samples.local.md`) so runs can be reproduced.
 - Treat the **source files** under `samples/` as read-only. Never edit, commit into, or reformat submodule content.
 - Pin each submodule to a specific commit so results are reproducible. Record the commit in the results of every run.
+- **Public test corpora.** `testrepo/<name>` MAY hold committed git submodules of public repositories whose license permits redistribution and local analysis, used only by automated tests. Each is pinned to a commit; its URL, commit, license and approval date are recorded in `testrepo/corpora.json`. Changing the pin is a reviewed change that updates the expectation files in the same commit. The `samples/` rules for read-only sources and no generated artifacts apply equally: tests index a copy under `.index/work/<name>/`. Private repositories MUST NOT be added under `testrepo/`, and the "do not commit `.gitmodules` or gitlinks" rule above applies to `samples/` only.
 - Do not generate artifacts inside `samples/` (this includes tokensave's `.tokensave/` folder). Index a git worktree/copy of the pinned commit under `.index/work/<name>/` instead, and write all indexes and caches under `.index/`.
 
 ## Architecture (working hypothesis)

@@ -1,0 +1,3 @@
+[submodule "testrepo/cisharpai"]
+	path = testrepo/cisharpai
+	url = https://github.com/alkampfergit/cisharpai

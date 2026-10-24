@@ -1,0 +1,16 @@
+{
+  "name": "rename-and-edit",
+  "base": "initial",
+  "ops": [
+    {
+      "op": "rename",
+      "from": "src/Services/OrderFormatter.cs",
+      "to": "src/Services/Formatting/OrderFormatter.cs"
+    },
+    {
+      "op": "replaceBytes",
+      "path": "src/Services/Formatting/OrderFormatter.cs",
+      "payloadFile": "OrderFormatter.cs"
+    }
+  ]
+}

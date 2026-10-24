@@ -1,0 +1,266 @@
+{
+  "tokensaveVersion": "7.16.0",
+  "requiredMetadataKeys": [
+    "last_full_index_version"
+  ],
+  "tables": {
+    "files": [
+      {
+        "name": "path",
+        "type": "TEXT",
+        "notNull": false,
+        "primaryKey": true
+      },
+      {
+        "name": "content_hash",
+        "type": "TEXT",
+        "notNull": true,
+        "primaryKey": false
+      },
+      {
+        "name": "size",
+        "type": "INTEGER",
+        "notNull": true,
+        "primaryKey": false
+      },
+      {
+        "name": "modified_at",
+        "type": "INTEGER",
+        "notNull": true,
+        "primaryKey": false
+      },
+      {
+        "name": "indexed_at",
+        "type": "INTEGER",
+        "notNull": true,
+        "primaryKey": false
+      },
+      {
+        "name": "node_count",
+        "type": "INTEGER",
+        "notNull": true,
+        "primaryKey": false
+      },
+      {
+        "name": "kind",
+        "type": "TEXT",
+        "notNull": true,
+        "primaryKey": false
+      }
+    ],
+    "nodes": [
+      {
+        "name": "id",
+        "type": "TEXT",
+        "notNull": false,
+        "primaryKey": true
+      },
+      {
+        "name": "kind",
+        "type": "TEXT",
+        "notNull": true,
+        "primaryKey": false
+      },
+      {
+        "name": "name",
+        "type": "TEXT",
+        "notNull": true,
+        "primaryKey": false
+      },
+      {
+        "name": "qualified_name",
+        "type": "TEXT",
+        "notNull": true,
+        "primaryKey": false
+      },
+      {
+        "name": "file_path",
+        "type": "TEXT",
+        "notNull": true,
+        "primaryKey": false
+      },
+      {
+        "name": "start_line",
+        "type": "INTEGER",
+        "notNull": true,
+        "primaryKey": false
+      },
+      {
+        "name": "end_line",
+        "type": "INTEGER",
+        "notNull": true,
+        "primaryKey": false
+      },
+      {
+        "name": "start_column",
+        "type": "INTEGER",
+        "notNull": true,
+        "primaryKey": false
+      },
+      {
+        "name": "end_column",
+        "type": "INTEGER",
+        "notNull": true,
+        "primaryKey": false
+      },
+      {
+        "name": "docstring",
+        "type": "TEXT",
+        "notNull": false,
+        "primaryKey": false
+      },
+      {
+        "name": "signature",
+        "type": "TEXT",
+        "notNull": false,
+        "primaryKey": false
+      },
+      {
+        "name": "visibility",
+        "type": "TEXT",
+        "notNull": true,
+        "primaryKey": false
+      },
+      {
+        "name": "is_async",
+        "type": "INTEGER",
+        "notNull": true,
+        "primaryKey": false
+      },
+      {
+        "name": "parent_id",
+        "type": "TEXT",
+        "notNull": false,
+        "primaryKey": false
+      },
+      {
+        "name": "attrs_start_line",
+        "type": "INTEGER",
+        "notNull": true,
+        "primaryKey": false
+      }
+    ],
+    "edges": [
+      {
+        "name": "id",
+        "type": "INTEGER",
+        "notNull": false,
+        "primaryKey": true
+      },
+      {
+        "name": "source",
+        "type": "TEXT",
+        "notNull": true,
+        "primaryKey": false
+      },
+      {
+        "name": "target",
+        "type": "TEXT",
+        "notNull": true,
+        "primaryKey": false
+      },
+      {
+        "name": "kind",
+        "type": "TEXT",
+        "notNull": true,
+        "primaryKey": false
+      },
+      {
+        "name": "line",
+        "type": "INTEGER",
+        "notNull": false,
+        "primaryKey": false
+      },
+      {
+        "name": "resolved_by",
+        "type": "INTEGER",
+        "notNull": false,
+        "primaryKey": false
+      }
+    ],
+    "unresolved_refs": [
+      {
+        "name": "from_node_id",
+        "type": "TEXT",
+        "notNull": true,
+        "primaryKey": false
+      },
+      {
+        "name": "reference_name",
+        "type": "TEXT",
+        "notNull": true,
+        "primaryKey": false
+      },
+      {
+        "name": "reference_kind",
+        "type": "TEXT",
+        "notNull": true,
+        "primaryKey": false
+      },
+      {
+        "name": "line",
+        "type": "INTEGER",
+        "notNull": true,
+        "primaryKey": false
+      },
+      {
+        "name": "col",
+        "type": "INTEGER",
+        "notNull": true,
+        "primaryKey": false
+      },
+      {
+        "name": "file_path",
+        "type": "TEXT",
+        "notNull": true,
+        "primaryKey": false
+      }
+    ],
+    "ambiguous_calls": [
+      {
+        "name": "from_node_id",
+        "type": "TEXT",
+        "notNull": true,
+        "primaryKey": true
+      },
+      {
+        "name": "reference_name",
+        "type": "TEXT",
+        "notNull": true,
+        "primaryKey": true
+      },
+      {
+        "name": "file_path",
+        "type": "TEXT",
+        "notNull": true,
+        "primaryKey": false
+      },
+      {
+        "name": "line",
+        "type": "INTEGER",
+        "notNull": true,
+        "primaryKey": true
+      },
+      {
+        "name": "candidate_node_ids",
+        "type": "TEXT",
+        "notNull": true,
+        "primaryKey": false
+      }
+    ],
+    "metadata": [
+      {
+        "name": "key",
+        "type": "TEXT",
+        "notNull": false,
+        "primaryKey": true
+      },
+      {
+        "name": "value",
+        "type": "TEXT",
+        "notNull": true,
+        "primaryKey": false
+      }
+    ]
+  }
+}

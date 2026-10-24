@@ -1,0 +1,1046 @@
+{
+  "schemaVersion": 1,
+  "fixture": "synthetic-csharp",
+  "state": "docs-only-edit",
+  "commit": "4038f4146062c55a1962e0cbdcc17c7831c13a46",
+  "tokensaveVersion": "7.16.0",
+  "files": [
+    {
+      "path": "docs/architecture.md",
+      "encoding": "utf-8",
+      "lineEnding": "lf",
+      "extracted": true
+    },
+    {
+      "path": "src/Domain/Events/OrderPlaced.cs",
+      "encoding": "utf-8",
+      "lineEnding": "lf",
+      "extracted": true
+    },
+    {
+      "path": "src/Domain/Generics/Collections.cs",
+      "encoding": "utf-8",
+      "lineEnding": "lf",
+      "extracted": true
+    },
+    {
+      "path": "src/Domain/Generics/Repository.cs",
+      "encoding": "utf-8",
+      "lineEnding": "lf",
+      "extracted": true
+    },
+    {
+      "path": "src/Domain/Money.cs",
+      "encoding": "utf-8",
+      "lineEnding": "lf",
+      "extracted": true
+    },
+    {
+      "path": "src/Domain/Order.Totals.cs",
+      "encoding": "utf-8",
+      "lineEnding": "lf",
+      "extracted": true
+    },
+    {
+      "path": "src/Domain/Order.cs",
+      "encoding": "utf-8",
+      "lineEnding": "lf",
+      "extracted": true
+    },
+    {
+      "path": "src/Domain/Order.readme.md",
+      "encoding": "utf-8",
+      "lineEnding": "lf",
+      "extracted": true
+    },
+    {
+      "path": "src/Domain/OrderLine.cs",
+      "encoding": "utf-8",
+      "lineEnding": "lf",
+      "extracted": true
+    },
+    {
+      "path": "src/Domain/OrderStatus.cs",
+      "encoding": "utf-8",
+      "lineEnding": "lf",
+      "extracted": true
+    },
+    {
+      "path": "src/Extensions/ServiceCollectionExtensions.cs",
+      "encoding": "utf-8",
+      "lineEnding": "lf",
+      "extracted": true
+    },
+    {
+      "path": "src/Extensions/StringExtensions.cs",
+      "encoding": "utf-8",
+      "lineEnding": "lf",
+      "extracted": true
+    },
+    {
+      "path": "src/Infrastructure/BomMarker.cs",
+      "encoding": "utf-8-bom",
+      "lineEnding": "lf",
+      "extracted": true
+    },
+    {
+      "path": "src/Infrastructure/CrlfMarker.cs",
+      "encoding": "utf-8",
+      "lineEnding": "crlf",
+      "extracted": true
+    },
+    {
+      "path": "src/Infrastructure/DependencyInjection.cs",
+      "encoding": "utf-8",
+      "lineEnding": "lf",
+      "extracted": true
+    },
+    {
+      "path": "src/Infrastructure/Latin1Marker.cs",
+      "encoding": "latin-1",
+      "lineEnding": "lf",
+      "extracted": true
+    },
+    {
+      "path": "src/Infrastructure/Utf16Marker.cs",
+      "encoding": "utf-16le",
+      "lineEnding": "lf",
+      "extracted": true
+    },
+    {
+      "path": "src/Program.cs",
+      "encoding": "utf-8",
+      "lineEnding": "lf",
+      "extracted": true
+    },
+    {
+      "path": "src/Services/EmailNotifier.cs",
+      "encoding": "utf-8",
+      "lineEnding": "lf",
+      "extracted": true
+    },
+    {
+      "path": "src/Services/INotifier.cs",
+      "encoding": "utf-8",
+      "lineEnding": "lf",
+      "extracted": true
+    },
+    {
+      "path": "src/Services/IOrderService.cs",
+      "encoding": "utf-8",
+      "lineEnding": "lf",
+      "extracted": true
+    },
+    {
+      "path": "src/Services/OrderFormatter.cs",
+      "encoding": "utf-8",
+      "lineEnding": "lf",
+      "extracted": true
+    },
+    {
+      "path": "src/Services/OrderService.cs",
+      "encoding": "utf-8",
+      "lineEnding": "lf",
+      "extracted": true
+    },
+    {
+      "path": "tokensave-docs/legacy-pricing.md",
+      "encoding": "utf-8",
+      "lineEnding": "lf",
+      "extracted": true
+    },
+    {
+      "path": "tokensave-docs/orders-overview.md",
+      "encoding": "utf-8",
+      "lineEnding": "lf",
+      "extracted": true
+    }
+  ],
+  "symbols": [
+    {
+      "path": "docs/architecture.md",
+      "qualifiedName": "Architecture",
+      "kind": "module",
+      "signature": "# Architecture",
+      "startLine": 1,
+      "endLine": 2
+    },
+    {
+      "path": "src/Domain/Events/OrderPlaced.cs",
+      "qualifiedName": "OrderPlaced",
+      "kind": "record",
+      "signature": "public record OrderPlaced(Guid OrderId, DateTimeOffset At)",
+      "startLine": 3,
+      "endLine": 3
+    },
+    {
+      "path": "src/Domain/Generics/Collections.cs",
+      "qualifiedName": "Cache",
+      "kind": "class",
+      "signature": "public class Cache\u003CTKey\u003E",
+      "startLine": 3,
+      "endLine": 11
+    },
+    {
+      "path": "src/Domain/Generics/Collections.cs",
+      "qualifiedName": "Cache::Entry",
+      "kind": "inner_class",
+      "signature": "public class Entry\u003CTValue\u003E",
+      "startLine": 5,
+      "endLine": 10
+    },
+    {
+      "path": "src/Domain/Generics/Collections.cs",
+      "qualifiedName": "Cache::Entry::Key",
+      "kind": "csharp_property",
+      "signature": "TKey? Key",
+      "startLine": 7,
+      "endLine": 7
+    },
+    {
+      "path": "src/Domain/Generics/Collections.cs",
+      "qualifiedName": "Cache::Entry::Value",
+      "kind": "csharp_property",
+      "signature": "TValue? Value",
+      "startLine": 9,
+      "endLine": 9
+    },
+    {
+      "path": "src/Domain/Generics/Collections.cs",
+      "qualifiedName": "Index",
+      "kind": "class",
+      "signature": "public class Index\u003CTKey\u003E",
+      "startLine": 13,
+      "endLine": 21
+    },
+    {
+      "path": "src/Domain/Generics/Collections.cs",
+      "qualifiedName": "Index::Entry",
+      "kind": "inner_class",
+      "signature": "public class Entry\u003CTValue\u003E",
+      "startLine": 15,
+      "endLine": 20
+    },
+    {
+      "path": "src/Domain/Generics/Collections.cs",
+      "qualifiedName": "Index::Entry::Key",
+      "kind": "csharp_property",
+      "signature": "TKey? Key",
+      "startLine": 17,
+      "endLine": 17
+    },
+    {
+      "path": "src/Domain/Generics/Collections.cs",
+      "qualifiedName": "Index::Entry::Position",
+      "kind": "csharp_property",
+      "signature": "int Position",
+      "startLine": 19,
+      "endLine": 19
+    },
+    {
+      "path": "src/Domain/Generics/Repository.cs",
+      "qualifiedName": "IRepository",
+      "kind": "interface",
+      "signature": "public interface IRepository\u003CT\u003E",
+      "startLine": 3,
+      "endLine": 8
+    },
+    {
+      "path": "src/Domain/Generics/Repository.cs",
+      "qualifiedName": "IRepository::FindAsync",
+      "kind": "method",
+      "signature": "Task\u003CT?\u003E FindAsync(Guid id, CancellationToken cancellationToken)",
+      "startLine": 5,
+      "endLine": 5
+    },
+    {
+      "path": "src/Domain/Generics/Repository.cs",
+      "qualifiedName": "IRepository::SaveAsync",
+      "kind": "method",
+      "signature": "Task SaveAsync(Guid id, T item, CancellationToken cancellationToken)",
+      "startLine": 7,
+      "endLine": 7
+    },
+    {
+      "path": "src/Domain/Generics/Repository.cs",
+      "qualifiedName": "InMemoryRepository",
+      "kind": "class",
+      "signature": "public class InMemoryRepository\u003CT\u003E : IRepository\u003CT\u003E",
+      "startLine": 10,
+      "endLine": 26
+    },
+    {
+      "path": "src/Domain/Generics/Repository.cs",
+      "qualifiedName": "InMemoryRepository::_items",
+      "kind": "field",
+      "signature": "private readonly Dictionary\u003CGuid, T\u003E _items = new();",
+      "startLine": 12,
+      "endLine": 12
+    },
+    {
+      "path": "src/Domain/Generics/Repository.cs",
+      "qualifiedName": "InMemoryRepository::FindAsync",
+      "kind": "method",
+      "signature": "public Task\u003CT?\u003E FindAsync(Guid id, CancellationToken cancellationToken)",
+      "startLine": 14,
+      "endLine": 18
+    },
+    {
+      "path": "src/Domain/Generics/Repository.cs",
+      "qualifiedName": "InMemoryRepository::SaveAsync",
+      "kind": "method",
+      "signature": "public Task SaveAsync(Guid id, T item, CancellationToken cancellationToken)",
+      "startLine": 20,
+      "endLine": 25
+    },
+    {
+      "path": "src/Domain/Money.cs",
+      "qualifiedName": "Money",
+      "kind": "class",
+      "signature": "public sealed class Money",
+      "startLine": 4,
+      "endLine": 21
+    },
+    {
+      "path": "src/Domain/Money.cs",
+      "qualifiedName": "Money::Money",
+      "kind": "constructor",
+      "signature": "public Money(decimal amount, string currency)",
+      "startLine": 6,
+      "endLine": 10
+    },
+    {
+      "path": "src/Domain/Money.cs",
+      "qualifiedName": "Money::Amount",
+      "kind": "csharp_property",
+      "signature": "decimal Amount",
+      "startLine": 12,
+      "endLine": 12
+    },
+    {
+      "path": "src/Domain/Money.cs",
+      "qualifiedName": "Money::Currency",
+      "kind": "csharp_property",
+      "signature": "string Currency",
+      "startLine": 14,
+      "endLine": 14
+    },
+    {
+      "path": "src/Domain/Money.cs",
+      "qualifiedName": "Money::Zero",
+      "kind": "method",
+      "signature": "public static Money Zero(string currency) =\u003E new(0m, currency)",
+      "startLine": 16,
+      "endLine": 16
+    },
+    {
+      "path": "src/Domain/Money.cs",
+      "qualifiedName": "Money::Add",
+      "kind": "method",
+      "signature": "public Money Add(Money other) =\u003E new(Amount \u002B other.Amount, Currency)",
+      "startLine": 18,
+      "endLine": 18
+    },
+    {
+      "path": "src/Domain/Money.cs",
+      "qualifiedName": "Money::Add",
+      "kind": "method",
+      "signature": "public Money Add(decimal amount) =\u003E new(Amount \u002B amount, Currency)",
+      "startLine": 20,
+      "endLine": 20
+    },
+    {
+      "path": "src/Domain/Order.Totals.cs",
+      "qualifiedName": "Order",
+      "kind": "class",
+      "signature": "public partial class Order",
+      "startLine": 3,
+      "endLine": 15
+    },
+    {
+      "path": "src/Domain/Order.Totals.cs",
+      "qualifiedName": "Order::Total",
+      "kind": "method",
+      "signature": "public Money Total()",
+      "startLine": 5,
+      "endLine": 14
+    },
+    {
+      "path": "src/Domain/Order.cs",
+      "qualifiedName": "Order",
+      "kind": "class",
+      "signature": "public partial class Order",
+      "startLine": 4,
+      "endLine": 29
+    },
+    {
+      "path": "src/Domain/Order.cs",
+      "qualifiedName": "Order::_lines",
+      "kind": "field",
+      "signature": "private readonly List\u003COrderLine\u003E _lines = new();",
+      "startLine": 6,
+      "endLine": 6
+    },
+    {
+      "path": "src/Domain/Order.cs",
+      "qualifiedName": "Order::Order",
+      "kind": "constructor",
+      "signature": "public Order(Guid id)",
+      "startLine": 8,
+      "endLine": 12
+    },
+    {
+      "path": "src/Domain/Order.cs",
+      "qualifiedName": "Order::Id",
+      "kind": "csharp_property",
+      "signature": "Guid Id",
+      "startLine": 14,
+      "endLine": 14
+    },
+    {
+      "path": "src/Domain/Order.cs",
+      "qualifiedName": "Order::Status",
+      "kind": "csharp_property",
+      "signature": "OrderStatus Status",
+      "startLine": 16,
+      "endLine": 16
+    },
+    {
+      "path": "src/Domain/Order.cs",
+      "qualifiedName": "Order::Lines",
+      "kind": "csharp_property",
+      "signature": "IReadOnlyList\u003COrderLine\u003E Lines",
+      "startLine": 18,
+      "endLine": 18
+    },
+    {
+      "path": "src/Domain/Order.cs",
+      "qualifiedName": "Order::AddLine",
+      "kind": "method",
+      "signature": "public void AddLine(OrderLine line)",
+      "startLine": 20,
+      "endLine": 23
+    },
+    {
+      "path": "src/Domain/Order.cs",
+      "qualifiedName": "Order::MarkPlaced",
+      "kind": "method",
+      "signature": "public void MarkPlaced()",
+      "startLine": 25,
+      "endLine": 28
+    },
+    {
+      "path": "src/Domain/Order.readme.md",
+      "qualifiedName": "Order",
+      "kind": "module",
+      "signature": "# Order",
+      "startLine": 1,
+      "endLine": 2
+    },
+    {
+      "path": "src/Domain/OrderLine.cs",
+      "qualifiedName": "OrderLine",
+      "kind": "record",
+      "signature": "public sealed record OrderLine(string Sku, int Quantity, Money UnitPrice)",
+      "startLine": 3,
+      "endLine": 6
+    },
+    {
+      "path": "src/Domain/OrderLine.cs",
+      "qualifiedName": "OrderLine::LineTotal",
+      "kind": "method",
+      "signature": "public Money LineTotal() =\u003E Money.Zero(UnitPrice.Currency).Add(UnitPrice.Amount * Quantity)",
+      "startLine": 5,
+      "endLine": 5
+    },
+    {
+      "path": "src/Domain/OrderStatus.cs",
+      "qualifiedName": "OrderStatus",
+      "kind": "enum",
+      "signature": "public enum OrderStatus",
+      "startLine": 3,
+      "endLine": 9
+    },
+    {
+      "path": "src/Domain/OrderStatus.cs",
+      "qualifiedName": "OrderStatus::Draft",
+      "kind": "enum_variant",
+      "signature": "Draft",
+      "startLine": 5,
+      "endLine": 5
+    },
+    {
+      "path": "src/Domain/OrderStatus.cs",
+      "qualifiedName": "OrderStatus::Placed",
+      "kind": "enum_variant",
+      "signature": "Placed",
+      "startLine": 6,
+      "endLine": 6
+    },
+    {
+      "path": "src/Domain/OrderStatus.cs",
+      "qualifiedName": "OrderStatus::Shipped",
+      "kind": "enum_variant",
+      "signature": "Shipped",
+      "startLine": 7,
+      "endLine": 7
+    },
+    {
+      "path": "src/Domain/OrderStatus.cs",
+      "qualifiedName": "OrderStatus::Cancelled",
+      "kind": "enum_variant",
+      "signature": "Cancelled",
+      "startLine": 8,
+      "endLine": 8
+    },
+    {
+      "path": "src/Extensions/ServiceCollectionExtensions.cs",
+      "qualifiedName": "ServiceCollectionExtensions",
+      "kind": "class",
+      "signature": "public static class ServiceCollectionExtensions",
+      "startLine": 7,
+      "endLine": 16
+    },
+    {
+      "path": "src/Extensions/ServiceCollectionExtensions.cs",
+      "qualifiedName": "ServiceCollectionExtensions::AddOrders",
+      "kind": "method",
+      "signature": "public static IServiceCollection AddOrders(this IServiceCollection services)",
+      "startLine": 9,
+      "endLine": 15
+    },
+    {
+      "path": "src/Extensions/StringExtensions.cs",
+      "qualifiedName": "StringExtensions",
+      "kind": "class",
+      "signature": "public static class StringExtensions",
+      "startLine": 3,
+      "endLine": 9
+    },
+    {
+      "path": "src/Extensions/StringExtensions.cs",
+      "qualifiedName": "StringExtensions::ToSlug",
+      "kind": "method",
+      "signature": "public static string ToSlug(this string value)",
+      "startLine": 5,
+      "endLine": 8
+    },
+    {
+      "path": "src/Infrastructure/BomMarker.cs",
+      "qualifiedName": "BomMarker",
+      "kind": "class",
+      "signature": "public static class BomMarker",
+      "startLine": 3,
+      "endLine": 6
+    },
+    {
+      "path": "src/Infrastructure/BomMarker.cs",
+      "qualifiedName": "BomMarker::Name",
+      "kind": "method",
+      "signature": "public static string Name() =\u003E \u0022utf8-bom\u0022",
+      "startLine": 5,
+      "endLine": 5
+    },
+    {
+      "path": "src/Infrastructure/CrlfMarker.cs",
+      "qualifiedName": "CrlfMarker",
+      "kind": "class",
+      "signature": "public static class CrlfMarker",
+      "startLine": 3,
+      "endLine": 6
+    },
+    {
+      "path": "src/Infrastructure/CrlfMarker.cs",
+      "qualifiedName": "CrlfMarker::Name",
+      "kind": "method",
+      "signature": "public static string Name() =\u003E \u0022crlf\u0022",
+      "startLine": 5,
+      "endLine": 5
+    },
+    {
+      "path": "src/Infrastructure/DependencyInjection.cs",
+      "qualifiedName": "IServiceCollection",
+      "kind": "interface",
+      "signature": "public interface IServiceCollection",
+      "startLine": 4,
+      "endLine": 9
+    },
+    {
+      "path": "src/Infrastructure/DependencyInjection.cs",
+      "qualifiedName": "IServiceCollection::Register",
+      "kind": "method",
+      "signature": "void Register(Type service, Type implementation)",
+      "startLine": 6,
+      "endLine": 6
+    },
+    {
+      "path": "src/Infrastructure/DependencyInjection.cs",
+      "qualifiedName": "IServiceCollection::Resolve",
+      "kind": "method",
+      "signature": "object? Resolve(Type service)",
+      "startLine": 8,
+      "endLine": 8
+    },
+    {
+      "path": "src/Infrastructure/DependencyInjection.cs",
+      "qualifiedName": "ServiceCollectionRegistration",
+      "kind": "class",
+      "signature": "public static class ServiceCollectionRegistration",
+      "startLine": 11,
+      "endLine": 19
+    },
+    {
+      "path": "src/Infrastructure/DependencyInjection.cs",
+      "qualifiedName": "ServiceCollectionRegistration::AddScoped",
+      "kind": "method",
+      "signature": "public static IServiceCollection AddScoped\u003CTService, TImplementation\u003E(this IServiceCollection services) where TImplementation : TService",
+      "startLine": 13,
+      "endLine": 18
+    },
+    {
+      "path": "src/Infrastructure/Latin1Marker.cs",
+      "qualifiedName": "Latin1Marker",
+      "kind": "class",
+      "signature": "public static class Latin1Marker",
+      "startLine": 3,
+      "endLine": 7
+    },
+    {
+      "path": "src/Infrastructure/Latin1Marker.cs",
+      "qualifiedName": "Latin1Marker::Name",
+      "kind": "method",
+      "signature": "public static string Name() =\u003E \u0022latin1\u0022",
+      "startLine": 6,
+      "endLine": 6
+    },
+    {
+      "path": "src/Infrastructure/Utf16Marker.cs",
+      "qualifiedName": "Utf16Marker",
+      "kind": "class",
+      "signature": "public static class Utf16Marker",
+      "startLine": 3,
+      "endLine": 6
+    },
+    {
+      "path": "src/Infrastructure/Utf16Marker.cs",
+      "qualifiedName": "Utf16Marker::Name",
+      "kind": "method",
+      "signature": "public static string Name() =\u003E \u0022utf16\u0022",
+      "startLine": 5,
+      "endLine": 5
+    },
+    {
+      "path": "src/Program.cs",
+      "qualifiedName": "Program",
+      "kind": "class",
+      "signature": "public static class Program",
+      "startLine": 7,
+      "endLine": 21
+    },
+    {
+      "path": "src/Program.cs",
+      "qualifiedName": "Program::RunAsync",
+      "kind": "method",
+      "signature": "public static async Task RunAsync(IServiceCollection services, CancellationToken cancellationToken)",
+      "startLine": 9,
+      "endLine": 20
+    },
+    {
+      "path": "src/Services/EmailNotifier.cs",
+      "qualifiedName": "EmailNotifier",
+      "kind": "class",
+      "signature": "public sealed class EmailNotifier : INotifier",
+      "startLine": 5,
+      "endLine": 12
+    },
+    {
+      "path": "src/Services/EmailNotifier.cs",
+      "qualifiedName": "EmailNotifier::NotifyAsync",
+      "kind": "method",
+      "signature": "public Task NotifyAsync(OrderPlaced placed, CancellationToken cancellationToken)",
+      "startLine": 7,
+      "endLine": 11
+    },
+    {
+      "path": "src/Services/INotifier.cs",
+      "qualifiedName": "INotifier",
+      "kind": "interface",
+      "signature": "public interface INotifier",
+      "startLine": 5,
+      "endLine": 8
+    },
+    {
+      "path": "src/Services/INotifier.cs",
+      "qualifiedName": "INotifier::NotifyAsync",
+      "kind": "method",
+      "signature": "Task NotifyAsync(OrderPlaced placed, CancellationToken cancellationToken)",
+      "startLine": 7,
+      "endLine": 7
+    },
+    {
+      "path": "src/Services/IOrderService.cs",
+      "qualifiedName": "IOrderService",
+      "kind": "interface",
+      "signature": "public interface IOrderService",
+      "startLine": 5,
+      "endLine": 10
+    },
+    {
+      "path": "src/Services/IOrderService.cs",
+      "qualifiedName": "IOrderService::PlaceOrderAsync",
+      "kind": "method",
+      "signature": "Task PlaceOrderAsync(Order order, CancellationToken cancellationToken)",
+      "startLine": 7,
+      "endLine": 7
+    },
+    {
+      "path": "src/Services/IOrderService.cs",
+      "qualifiedName": "IOrderService::GetOrderAsync",
+      "kind": "method",
+      "signature": "Task\u003COrder?\u003E GetOrderAsync(Guid id, CancellationToken cancellationToken = default)",
+      "startLine": 9,
+      "endLine": 9
+    },
+    {
+      "path": "src/Services/OrderFormatter.cs",
+      "qualifiedName": "OrderFormatter",
+      "kind": "class",
+      "signature": "public static class OrderFormatter",
+      "startLine": 5,
+      "endLine": 17
+    },
+    {
+      "path": "src/Services/OrderFormatter.cs",
+      "qualifiedName": "OrderFormatter::Format",
+      "kind": "method",
+      "signature": "public static string Format(Order order)",
+      "startLine": 7,
+      "endLine": 10
+    },
+    {
+      "path": "src/Services/OrderFormatter.cs",
+      "qualifiedName": "OrderFormatter::Format",
+      "kind": "method",
+      "signature": "public static string Format(Order order, string currency)",
+      "startLine": 12,
+      "endLine": 16
+    },
+    {
+      "path": "src/Services/OrderService.cs",
+      "qualifiedName": "OrderService",
+      "kind": "class",
+      "signature": "public sealed class OrderService : IOrderService",
+      "startLine": 7,
+      "endLine": 35
+    },
+    {
+      "path": "src/Services/OrderService.cs",
+      "qualifiedName": "OrderService::_repository",
+      "kind": "field",
+      "signature": "private readonly IRepository\u003COrder\u003E _repository;",
+      "startLine": 9,
+      "endLine": 9
+    },
+    {
+      "path": "src/Services/OrderService.cs",
+      "qualifiedName": "OrderService::_notifier",
+      "kind": "field",
+      "signature": "private readonly INotifier _notifier;",
+      "startLine": 10,
+      "endLine": 10
+    },
+    {
+      "path": "src/Services/OrderService.cs",
+      "qualifiedName": "OrderService::OrderService",
+      "kind": "constructor",
+      "signature": "public OrderService(IRepository\u003COrder\u003E repository, INotifier notifier)",
+      "startLine": 12,
+      "endLine": 16
+    },
+    {
+      "path": "src/Services/OrderService.cs",
+      "qualifiedName": "OrderService::PlaceOrderAsync",
+      "kind": "method",
+      "signature": "public async Task PlaceOrderAsync(Order order, CancellationToken cancellationToken)",
+      "startLine": 18,
+      "endLine": 29
+    },
+    {
+      "path": "src/Services/OrderService.cs",
+      "qualifiedName": "OrderService::GetOrderAsync",
+      "kind": "method",
+      "signature": "public Task\u003COrder?\u003E GetOrderAsync(Guid id, CancellationToken cancellationToken = default)",
+      "startLine": 31,
+      "endLine": 34
+    },
+    {
+      "path": "tokensave-docs/legacy-pricing.md",
+      "qualifiedName": "Legacy pricing",
+      "kind": "module",
+      "signature": "# Legacy pricing",
+      "startLine": 6,
+      "endLine": 7
+    },
+    {
+      "path": "tokensave-docs/orders-overview.md",
+      "qualifiedName": "Orders overview",
+      "kind": "module",
+      "signature": "# Orders overview",
+      "startLine": 8,
+      "endLine": 9
+    }
+  ],
+  "relationships": [
+    {
+      "from": "src/Domain/Order.Totals.cs#Order::Total",
+      "to": "src/Domain/Money.cs#Money::Add#0",
+      "kind": "calls",
+      "status": "resolved"
+    },
+    {
+      "from": "src/Domain/Order.Totals.cs#Order::Total",
+      "to": "src/Domain/Money.cs#Money::Zero",
+      "kind": "calls",
+      "status": "resolved"
+    },
+    {
+      "from": "src/Domain/Order.Totals.cs#Order::Total",
+      "to": "src/Domain/OrderLine.cs#OrderLine::LineTotal",
+      "kind": "calls",
+      "status": "resolved"
+    },
+    {
+      "from": "src/Domain/OrderLine.cs#OrderLine::LineTotal",
+      "to": "src/Domain/Money.cs#Money::Add#0",
+      "kind": "calls",
+      "status": "resolved"
+    },
+    {
+      "from": "src/Domain/OrderLine.cs#OrderLine::LineTotal",
+      "to": "src/Domain/Money.cs#Money::Zero",
+      "kind": "calls",
+      "status": "resolved"
+    },
+    {
+      "from": "src/Infrastructure/DependencyInjection.cs#ServiceCollectionRegistration::AddScoped",
+      "to": "src/Infrastructure/DependencyInjection.cs#IServiceCollection::Register",
+      "kind": "calls",
+      "status": "resolved"
+    },
+    {
+      "from": "src/Program.cs#Program::RunAsync",
+      "to": "src/Domain/Order.cs#Order::AddLine",
+      "kind": "calls",
+      "status": "resolved"
+    },
+    {
+      "from": "src/Program.cs#Program::RunAsync",
+      "to": "src/Infrastructure/DependencyInjection.cs#IServiceCollection::Resolve",
+      "kind": "calls",
+      "status": "resolved"
+    },
+    {
+      "from": "src/Program.cs#Program::RunAsync",
+      "to": "src/Services/IOrderService.cs#IOrderService::PlaceOrderAsync",
+      "kind": "calls",
+      "status": "resolved"
+    },
+    {
+      "from": "src/Program.cs#Program::RunAsync",
+      "to": "src/Services/OrderFormatter.cs#OrderFormatter::Format#0",
+      "kind": "calls",
+      "status": "resolved"
+    },
+    {
+      "from": "src/Services/OrderFormatter.cs#OrderFormatter::Format#1",
+      "to": "src/Domain/Order.Totals.cs#Order::Total",
+      "kind": "calls",
+      "status": "resolved"
+    },
+    {
+      "from": "src/Services/OrderService.cs#OrderService::GetOrderAsync",
+      "to": "src/Domain/Generics/Repository.cs#IRepository::FindAsync",
+      "kind": "calls",
+      "status": "resolved"
+    },
+    {
+      "from": "src/Services/OrderService.cs#OrderService::PlaceOrderAsync",
+      "to": "src/Domain/Generics/Repository.cs#IRepository::SaveAsync",
+      "kind": "calls",
+      "status": "resolved"
+    },
+    {
+      "from": "src/Services/OrderService.cs#OrderService::PlaceOrderAsync",
+      "to": "src/Domain/Order.Totals.cs#Order::Total",
+      "kind": "calls",
+      "status": "resolved"
+    },
+    {
+      "from": "src/Services/OrderService.cs#OrderService::PlaceOrderAsync",
+      "to": "src/Domain/Order.cs#Order::MarkPlaced",
+      "kind": "calls",
+      "status": "resolved"
+    },
+    {
+      "from": "src/Services/OrderService.cs#OrderService::PlaceOrderAsync",
+      "to": "src/Services/INotifier.cs#INotifier::NotifyAsync",
+      "kind": "calls",
+      "status": "resolved"
+    },
+    {
+      "from": "src/Domain/Order.readme.md",
+      "to": "src/Domain/Order.Totals.cs",
+      "kind": "documents",
+      "status": "resolved"
+    },
+    {
+      "from": "src/Domain/Order.readme.md",
+      "to": "src/Domain/Order.cs",
+      "kind": "documents",
+      "status": "resolved"
+    },
+    {
+      "from": "tokensave-docs/orders-overview.md",
+      "to": "src/Domain/Money.cs",
+      "kind": "documents",
+      "status": "resolved"
+    },
+    {
+      "from": "tokensave-docs/orders-overview.md",
+      "to": "src/Services/IOrderService.cs",
+      "kind": "documents",
+      "status": "resolved"
+    },
+    {
+      "from": "tokensave-docs/orders-overview.md",
+      "to": "src/Services/OrderService.cs",
+      "kind": "documents",
+      "status": "resolved"
+    },
+    {
+      "from": "src/Domain/Generics/Repository.cs#InMemoryRepository",
+      "to": "src/Domain/Generics/Repository.cs#IRepository",
+      "kind": "implements",
+      "status": "resolved"
+    },
+    {
+      "from": "src/Services/EmailNotifier.cs#EmailNotifier",
+      "to": "src/Services/INotifier.cs#INotifier",
+      "kind": "implements",
+      "status": "resolved"
+    },
+    {
+      "from": "src/Services/OrderService.cs#OrderService",
+      "to": "src/Services/IOrderService.cs#IOrderService",
+      "kind": "implements",
+      "status": "resolved"
+    },
+    {
+      "from": "src/Domain/Money.cs#Money::Add#0",
+      "to": "src/Domain/Money.cs#Money::Amount",
+      "kind": "uses",
+      "status": "resolved"
+    },
+    {
+      "from": "src/Domain/OrderLine.cs#OrderLine::LineTotal",
+      "to": "src/Domain/Money.cs#Money::Currency",
+      "kind": "uses",
+      "status": "resolved"
+    },
+    {
+      "from": "src/Services/OrderFormatter.cs#OrderFormatter::Format#1",
+      "to": "src/Domain/Money.cs#Money::Amount",
+      "kind": "uses",
+      "status": "resolved"
+    },
+    {
+      "from": "src/Services/OrderFormatter.cs#OrderFormatter::Format#1",
+      "to": "src/Domain/Order.cs#Order::Id",
+      "kind": "uses",
+      "status": "resolved"
+    },
+    {
+      "from": "src/Services/OrderService.cs#OrderService::PlaceOrderAsync",
+      "to": "src/Domain/Money.cs#Money::Amount",
+      "kind": "uses",
+      "status": "resolved"
+    },
+    {
+      "from": "src/Services/OrderService.cs#OrderService::PlaceOrderAsync",
+      "to": "src/Domain/Order.cs#Order::Id",
+      "kind": "uses",
+      "status": "resolved"
+    },
+    {
+      "from": "src/Extensions/ServiceCollectionExtensions.cs#ServiceCollectionExtensions::AddOrders",
+      "to": "services.AddScoped",
+      "kind": "calls",
+      "status": "unresolved"
+    },
+    {
+      "from": "src/Program.cs#Program::RunAsync",
+      "to": "\u0022Spring Sale\u0022.ToSlug",
+      "kind": "calls",
+      "status": "unresolved"
+    },
+    {
+      "from": "src/Program.cs#Program::RunAsync",
+      "to": "new Order",
+      "kind": "calls",
+      "status": "unresolved"
+    },
+    {
+      "from": "src/Program.cs#Program::RunAsync",
+      "to": "services.AddOrders",
+      "kind": "calls",
+      "status": "unresolved"
+    },
+    {
+      "from": "src/Domain/Order.cs#Order::AddLine",
+      "to": "_lines.Add",
+      "kind": "calls",
+      "status": "ambiguous",
+      "candidates": [
+        "src/Domain/Money.cs#Money::Add#0",
+        "src/Domain/Money.cs#Money::Add#1"
+      ]
+    },
+    {
+      "from": "src/Services/OrderFormatter.cs#OrderFormatter::Format#0",
+      "to": "Format",
+      "kind": "calls",
+      "status": "ambiguous",
+      "candidates": [
+        "src/Services/OrderFormatter.cs#OrderFormatter::Format#0",
+        "src/Services/OrderFormatter.cs#OrderFormatter::Format#1"
+      ]
+    }
+  ],
+  "docAssociations": [
+    {
+      "doc": "src/Domain/Order.readme.md",
+      "appliesTo": [
+        "src/Domain/Order.Totals.cs",
+        "src/Domain/Order.cs"
+      ],
+      "mechanism": "sidecar"
+    },
+    {
+      "doc": "tokensave-docs/legacy-pricing.md",
+      "appliesTo": [
+        "src/Domain/Pricing.cs"
+      ],
+      "mechanism": "central",
+      "stale": true
+    },
+    {
+      "doc": "tokensave-docs/orders-overview.md",
+      "appliesTo": [
+        "src/Domain/Money.cs",
+        "src/Services/IOrderService.cs",
+        "src/Services/OrderService.cs"
+      ],
+      "mechanism": "central"
+    }
+  ]
+}

@@ -1,0 +1,196 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "polifemo/expectation-record/v1",
+  "title": "Fixture expectation record",
+  "description": "Expected extractor output for one fixture state. Cases the pinned extractor cannot resolve are recorded with their status, never omitted.",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "fixture",
+    "state",
+    "commit",
+    "tokensaveVersion",
+    "files",
+    "symbols",
+    "relationships"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "fixture": {
+      "type": "string"
+    },
+    "state": {
+      "type": "string",
+      "description": "'base' or a mutation name"
+    },
+    "commit": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "tokensaveVersion": {
+      "type": "string"
+    },
+    "files": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "path",
+          "encoding",
+          "lineEnding",
+          "extracted"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "path": {
+            "type": "string"
+          },
+          "encoding": {
+            "enum": [
+              "utf-8",
+              "utf-8-bom",
+              "latin-1",
+              "utf-16le"
+            ]
+          },
+          "lineEnding": {
+            "enum": [
+              "lf",
+              "crlf",
+              "mixed"
+            ]
+          },
+          "extracted": {
+            "type": "boolean"
+          },
+          "note": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "symbols": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "path",
+          "qualifiedName",
+          "kind",
+          "startLine",
+          "endLine"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "path": {
+            "type": "string"
+          },
+          "qualifiedName": {
+            "type": "string",
+            "description": "In-file qualified name: TokenSave's qualified_name without the '<path>::' prefixes."
+          },
+          "kind": {
+            "type": "string"
+          },
+          "signature": {
+            "type": "string"
+          },
+          "startLine": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "1-based, inclusive. TokenSave reports 0-based lines; the record converts."
+          },
+          "endLine": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "status": {
+            "enum": [
+              "expected",
+              "unsupported"
+            ],
+            "default": "expected"
+          }
+        }
+      }
+    },
+    "relationships": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "from",
+          "to",
+          "kind",
+          "status"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "from": {
+            "type": "string",
+            "description": "Symbol reference of the source: '<path>#<in-file qualified name>', plus '#<k>' (0-based, source order) when several symbols of that file share the name, e.g. an overload set."
+          },
+          "to": {
+            "type": "string",
+            "description": "Symbol reference of the target. For 'unresolved' and 'ambiguous' it is the reference text exactly as written in the source (for example 'services.AddOrders')."
+          },
+          "kind": {
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "resolved",
+              "unresolved",
+              "ambiguous",
+              "unsupported"
+            ],
+            "description": "resolved: the extractor links from to to. unresolved: the extractor kept the reference text but linked nothing. ambiguous: the extractor listed candidates instead of choosing. unsupported: a known limitation; the correct link is NOT produced (a test fails if it ever appears, so the record gets revisited)."
+          },
+          "candidates": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "note": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "docAssociations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "doc",
+          "appliesTo"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "doc": {
+            "type": "string"
+          },
+          "appliesTo": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "mechanism": {
+            "enum": [
+              "sidecar",
+              "central"
+            ]
+          },
+          "stale": {
+            "type": "boolean"
+          }
+        }
+      }
+    }
+  }
+}

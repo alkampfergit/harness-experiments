@@ -1,0 +1,131 @@
+name: CI
+run-name: CI · ${{ github.ref_name }} · #${{ github.run_number }}
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  version:
+    name: Calculate GitVersion
+    runs-on: ubuntu-latest
+    outputs:
+      full_semver: ${{ steps.gitversion.outputs.full_semver }}
+    steps:
+      - name: Check out full history
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Set up .NET SDK
+        uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+
+      - name: Install GitVersion.Tool
+        run: |
+          dotnet tool install --global GitVersion.Tool --version 6.8.2
+          echo "$HOME/.dotnet/tools" >> "$GITHUB_PATH"
+
+      - name: Calculate semantic version
+        id: gitversion
+        shell: bash
+        run: |
+          version="$(dotnet-gitversion /showvariable FullSemVer)"
+          echo "full_semver=$version" >> "$GITHUB_OUTPUT"
+          echo "GitVersion FullSemVer: $version"
+          {
+            echo "### GitVersion"
+            echo
+            echo "FullSemVer: \`$version\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  build-and-test:
+    name: Build and test (${{ needs.version.outputs.full_semver }})
+    needs: version
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      checks: write
+    env:
+      ELASTICSEARCH_URL: http://localhost:9200
+    services:
+      elasticsearch:
+        image: docker.elastic.co/elasticsearch/elasticsearch:9.5.5
+        env:
+          discovery.type: single-node
+          xpack.security.enabled: "false"
+          xpack.security.http.ssl.enabled: "false"
+          xpack.security.transport.ssl.enabled: "false"
+          xpack.license.self_generated.type: basic
+          ES_JAVA_OPTS: -Xms1g -Xmx1g
+        ports:
+          - 9200:9200
+        options: >-
+          --health-cmd "curl --silent --show-error --fail 'http://localhost:9200/_cluster/health?wait_for_status=yellow&timeout=5s'"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 30
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v7
+        with:
+          submodules: true
+
+      - name: Install pinned TokenSave
+        shell: bash
+        run: |
+          case "$(uname -m)" in
+            x86_64)
+              tokensave_arch=x86_64-linux
+              tokensave_sha256=783dcea8bb8b472982b497523ad912a5176b8d8e770d25592dc38b5f749ac7ea
+              ;;
+            aarch64|arm64)
+              tokensave_arch=aarch64-linux
+              tokensave_sha256=b1b28daf21ea51f44ccfd1ea3101505d6db644a055cef261bcdb3beb8369d03f
+              ;;
+            *)
+              echo "Unsupported TokenSave runner architecture: $(uname -m)" >&2
+              exit 1
+              ;;
+          esac
+          archive="$RUNNER_TEMP/tokensave.tar.gz"
+          curl --fail --silent --show-error --location \
+            "https://github.com/aovestdipaperino/tokensave/releases/download/v7.16.0/tokensave-v7.16.0-${tokensave_arch}.tar.gz" \
+            --output "$archive"
+          echo "$tokensave_sha256  $archive" | sha256sum --check --status
+          tar --extract --gzip --file "$archive" --directory "$RUNNER_TEMP"
+          sudo install --mode 0755 "$RUNNER_TEMP/tokensave" /usr/local/bin/tokensave
+          tokensave --version
+          tokensave disable-upload-counter
+
+      - name: Set up .NET SDK
+        uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+
+      - name: Restore
+        run: dotnet restore Polifemo.slnx
+
+      - name: Build
+        run: dotnet build Polifemo.slnx --no-restore --configuration Release
+
+      - name: Test
+        id: test
+        run: >-
+          dotnet test --solution Polifemo.slnx --no-restore --configuration Release
+          --results-directory TestResults -- --report-trx
+          --report-trx-filename "{asm}_{tfm}_{arch}.trx"
+
+      - name: Publish test report
+        if: ${{ !cancelled() }}
+        uses: EnricoMi/publish-unit-test-result-action@v2
+        with:
+          files: TestResults/**/*.trx
+          check_name: Unit and integration test results
+          comment_mode: off
