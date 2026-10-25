@@ -7,6 +7,7 @@ These scenarios prove the feature end to end. Run them inside the devcontainer, 
 - The devcontainer is rebuilt after the postcreate change. `tokensave --version` prints `7.16.0`, and `curl -s -u elastic:$ELASTICSEARCH_PASSWORD $ELASTICSEARCH_URL` reports `9.5.5`.
 - `git submodule update --init testrepo/cisharpai` has been run once (needs network).
 - `dotnet --version` matches `global.json`.
+- Each online or offline pass uses a fresh `RUN_ID`, exported once and reused through steps 2 and 4. The fixture builder deletes its `--out` directory, and `fixture prepare` rejects an existing work name; use run-specific paths and do not delete prior `.index/` data.
 
 ## 1. Build and unit tests
 
@@ -20,9 +21,12 @@ Expected: all tests pass. The Elasticsearch tests run because `ELASTICSEARCH_URL
 ## 2. TokenSave compatibility (SC-001)
 
 ```bash
-dotnet run --project src/Polifemo.Cli -- fixture build --fixture src/fixtures/synthetic-csharp --out .index/fixtures/synthetic-csharp
-dotnet run --project src/Polifemo.Cli -- fixture prepare --sample .index/fixtures/synthetic-csharp --commit <sha from PROVENANCE.md> --name synth --index
-dotnet run --project src/Polifemo.Cli -- platform check --worktree .index/work/synth
+export RUN_ID="quickstart-$(date -u +%Y%m%dT%H%M%SZ)"
+FIXTURE=".index/fixtures/synthetic-csharp-$RUN_ID"
+WORK="synth-$RUN_ID"
+dotnet run --project src/Polifemo.Cli -- fixture build --fixture src/fixtures/synthetic-csharp --out "$FIXTURE"
+dotnet run --project src/Polifemo.Cli -- fixture prepare --sample "$FIXTURE" --commit <sha from src/fixtures/synthetic-csharp/PROVENANCE.md> --name "$WORK" --index
+dotnet run --project src/Polifemo.Cli -- platform check --worktree ".index/work/$WORK"
 ```
 
 Expected:
@@ -52,23 +56,37 @@ Expected:
 ## 4. Fixture determinism, isolation and worktrees (SC-003, SC-004)
 
 ```bash
-git -C .index/fixtures/synthetic-csharp status --porcelain > /tmp/before   # sample stays clean
+set -euo pipefail
+FIXTURE=".index/fixtures/synthetic-csharp-$RUN_ID"
+WORK="synth-$RUN_ID"
+git -C "$FIXTURE" status --porcelain > "/tmp/before-$RUN_ID"   # fixture stays clean
+git -C testrepo/cisharpai status --porcelain > "/tmp/cisharpai-before-$RUN_ID"
 for run in a b; do
-  dotnet run --project src/Polifemo.Cli -- fixture prepare --sample .index/fixtures/synthetic-csharp --commit <sha> --name synth-$run
-  dotnet run --project src/Polifemo.Cli -- fixture mutate --worktree .index/work/synth-$run --mutation src/fixtures/synthetic-csharp/mutations/rename-file
+  dotnet run --project src/Polifemo.Cli -- fixture prepare --sample "$FIXTURE" --commit <sha> --name "$WORK-$run"
+  dotnet run --project src/Polifemo.Cli -- fixture mutate --worktree ".index/work/$WORK-$run" --mutation src/fixtures/synthetic-csharp/mutations/rename-file
 done
-git -C .index/work/synth-a rev-parse HEAD; git -C .index/work/synth-b rev-parse HEAD
-git -C .index/fixtures/synthetic-csharp status --porcelain | diff /tmp/before -
-dotnet run --project src/Polifemo.Cli -- fixture worktree --work .index/work/synth --name dirty --dirty-from edit-method
+git -C ".index/work/$WORK-a" rev-parse HEAD; git -C ".index/work/$WORK-b" rev-parse HEAD
+git -C "$FIXTURE" status --porcelain | diff "/tmp/before-$RUN_ID" -
+dotnet run --project src/Polifemo.Cli -- fixture worktree --work ".index/work/$WORK" --name "dirty-$RUN_ID" --dirty-from edit-method
+set +e
+unknown_output=$(dotnet run --project src/Polifemo.Cli -- fixture prepare --sample "$FIXTURE" --commit 0000000000000000000000000000000000000000 --name "unknown-$RUN_ID" 2>&1)
+unknown_status=$?
+set -e
+printf '%s\\n' "$unknown_output"
+test "$unknown_status" -eq 1
+[[ "$unknown_output" == *PREP_UNKNOWN_COMMIT* ]]
+test ! -e ".index/work/unknown-$RUN_ID"
+dotnet run --project src/Polifemo.Cli -- fixture prepare --sample testrepo/cisharpai --commit 8103c0d822211a60bb31815a28d354578be6bd6c --name "cisharpai-$RUN_ID"
+git -C testrepo/cisharpai status --porcelain | diff "/tmp/cisharpai-before-$RUN_ID" -
+test ! -e testrepo/cisharpai/.tokensave
 ```
 
 Expected:
 - Both HEADs are identical.
 - The `diff` is empty.
-- The dirty worktree has uncommitted changes, and `synth` (the clean base clone it came from) is unaffected.
-- `fixture prepare` with an unknown commit exits with 1 and `PREP_UNKNOWN_COMMIT`, and no directory is created.
-
-The same holds for `--sample testrepo/cisharpai --commit 8103c0d822211a60bb31815a28d354578be6bd6c`: `git -C testrepo/cisharpai status --porcelain` stays empty, and there is no `testrepo/cisharpai/.tokensave`.
+- The dirty worktree has uncommitted changes, and the base clone `.index/work/$WORK` is unaffected.
+- `fixture prepare` with the unknown commit exits with 1 and `PREP_UNKNOWN_COMMIT`, and no `.index/work/unknown-$RUN_ID` directory is created.
+- Preparing the pinned cisharpai submodule leaves its source status empty and creates no `testrepo/cisharpai/.tokensave`.
 
 ## 5. Expectations and identities (SC-005, SC-006)
 
@@ -86,19 +104,47 @@ Expected:
 
 ## 6. Offline run (SC-002)
 
-Dropped by the maintainer: no dedicated offline run is required. The commands above only talk to localhost.
+Disconnect the devcontainer from external networks while keeping the Compose network, for example with `docker network disconnect bridge <container>` or by blocking egress. Start a fresh `RUN_ID` for this pass, then repeat steps 2 to 5 and time them. Reuse that value in steps 2 and 4; all generated paths must be new.
+
+Expected: everything passes in under 10 minutes, and no command tries to download anything.
 
 ## 7. Nothing private committed (SC-007)
 
 ```bash
-git ls-files | grep -E '^(samples/|\.index/)' ; git ls-files -s | awk '$1=="160000"'
-grep -n 'samples/' .gitmodules 2>/dev/null
+python3 - <<'PY'
+from pathlib import Path
+import subprocess
+
+tracked = subprocess.check_output(["git", "ls-files"], text=True).splitlines()
+private_or_generated = [path for path in tracked if path.startswith(("samples/", ".index/"))]
+entries = subprocess.check_output(["git", "ls-files", "-s"], text=True).splitlines()
+gitlinks = []
+for line in entries:
+    fields = line.split(maxsplit=3)
+    if fields[0] == "160000":
+        gitlinks.append(fields[3])
+module_paths = [
+    line.strip().split("=", 1)[1].strip()
+    for line in Path(".gitmodules").read_text().splitlines()
+    if line.strip().startswith("path =")
+]
+sample_list_status = subprocess.check_output(
+    ["git", "status", "--short", "--", "samples.local.md"], text=True
+).strip()
+assert not private_or_generated, private_or_generated
+assert gitlinks == ["testrepo/cisharpai"], gitlinks
+assert all(path.startswith("testrepo/") for path in module_paths), module_paths
+print("tracked samples/.index:", private_or_generated)
+print("gitlinks:", gitlinks)
+print(".gitmodules paths:", module_paths)
+print("samples.local.md status:", sample_list_status or "absent/clean")
+PY
 ```
 
 Expected:
-- The first command prints nothing.
+- No tracked files are under `samples/` or `.index/`.
 - The only gitlink is `testrepo/cisharpai`.
-- `.gitmodules` lists only `testrepo/` entries, and `samples.local.md` is untracked.
+- `.gitmodules` lists only `testrepo/` entries. If private samples were used, `samples.local.md` remains untracked; it may be absent when no private samples are used.
 
 ## 8. Compatibility record (SC-008)
 

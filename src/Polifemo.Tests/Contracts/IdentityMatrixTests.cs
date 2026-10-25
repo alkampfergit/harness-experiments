@@ -6,6 +6,7 @@ namespace Polifemo.Tests.Contracts;
 /// The mutation × identity matrix of data-model.md (SC-006): for each mutation, which values of the touched
 /// symbols stay and which change, and that untouched symbols keep every value.
 /// </summary>
+[Trait("Category", "Identity")]
 public class IdentityMatrixTests : IDisposable
 {
     private readonly TestWorkspace _ws = new();
