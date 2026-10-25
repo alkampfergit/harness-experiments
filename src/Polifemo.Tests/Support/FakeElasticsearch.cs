@@ -6,17 +6,30 @@ namespace Polifemo.Tests.Support;
 /// <summary>Minimal in-process HTTP stub to exercise the smoke test's failure paths without a real store.</summary>
 public sealed class FakeElasticsearch : IDisposable
 {
-    private readonly HttpListener _listener = new();
+    private HttpListener _listener = new();
     private readonly Func<HttpListenerRequest, (int Status, string Body)> _handler;
     public string Url { get; }
 
     public FakeElasticsearch(Func<HttpListenerRequest, (int Status, string Body)> handler)
     {
         _handler = handler;
-        var port = FreePort();
-        Url = $"http://127.0.0.1:{port}";
-        _listener.Prefixes.Add(Url + "/");
-        _listener.Start();
+        // The port is probed then released, so another process can grab it first: retry on a new port.
+        for (var attempt = 0; ; attempt++)
+        {
+            var url = $"http://127.0.0.1:{FreePort()}";
+            _listener = new HttpListener();
+            _listener.Prefixes.Add(url + "/");
+            try
+            {
+                _listener.Start();
+                Url = url;
+                break;
+            }
+            catch (HttpListenerException) when (attempt < 10)
+            {
+                _listener.Close();
+            }
+        }
         _ = Task.Run(Loop);
     }
 
