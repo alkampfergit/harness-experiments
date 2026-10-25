@@ -4,7 +4,7 @@
   "issueDiscoveryValue": "automated",
   "claudeSystemPrompt": "claude-system-prompt.md",
   "doWork": {
-    "baseBranch": "master",
+    "baseBranch": "develop",
     "maxRunsPerTick": 2,
     "prompts": {
       "issueDiscuss": "do-work-issue-discuss.md",
