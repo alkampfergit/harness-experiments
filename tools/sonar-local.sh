@@ -75,7 +75,7 @@ mkdir -p "$SARIF_DIR"
 echo "Building analysis copy (SonarAnalyzer.CSharp $SONAR_ANALYZER_VERSION)..."
 if ! dotnet build "$WORK/Polifemo.slnx" -nologo -v q -m \
      -p:SonarSarifDir="$SARIF_DIR" -p:TreatWarningsAsErrors=false > "$WORK/build.log" 2>&1; then
-  tail -40 "$WORK/build.log"
+  grep -E " error " "$WORK/build.log" | sort -u | cut -c1-300 | head -40
   echo "sonar-local: build failed" >&2
   exit 2
 fi

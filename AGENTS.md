@@ -20,7 +20,7 @@ src/             # Polifemo.Contracts, Polifemo.Platform, Polifemo.Cli (the `pol
                  # Polifemo.Tests (one test project, folders named after the section tested),
                  # fixtures/ (plain-file test repositories, never compiled)
 docs/            # technology.md, backlog/, platform-compatibility.md (pinned versions and observed behavior)
-tools/           # helper processes (e.g. tools/embed-server/ Python sidecar)
+tools/           # helper processes (tools/embed-server/ Python sidecar) and scripts (tools/sonar-local.sh)
 eval/            # queries + gold labels + metric runners (shared by all experiments)
 experiments/     # one folder per experiment/technique
 results/         # metrics output per run, comparable across experiments
@@ -89,6 +89,7 @@ Design points:
 - Primary language of the indexed targets: **C#**. Experiment code is C# (see Technology decisions); other languages only for helper tools under `tools/`.
 - Keep generated data (indexes, embeddings, caches) out of git; add it to `.gitignore`.
 - **Zero warnings.** `dotnet build` and `dotnet test` MUST finish with 0 warnings, in the code and in the tests. `Directory.Build.props` sets `TreatWarningsAsErrors`, so CI fails on a warning. Fix the cause (for example pass `TestContext.Current.CancellationToken` where an analyzer asks for it). Do not hide a warning with `#pragma warning disable`, `[SuppressMessage]`, `<NoWarn>` or a lowered warning level; if a suppression is truly unavoidable, scope it as narrowly as possible, put the reason in a comment next to it and mention it in the commit message.
+- **Local Sonar check.** Before every commit and push run `tools/sonar-local.sh` (no upload; it analyses a throwaway copy of the working tree with the pinned `SonarAnalyzer.CSharp`) and fix every finding at its cause. It MUST report `0 finding(s)`. Also run `dotnet test` (all tests passing) and keep code coverage from dropping.
 - Commit small, focused changes; do not commit unrelated files.
 - Do not add dependencies or services without noting why in the experiment README.
 
