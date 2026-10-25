@@ -27,6 +27,27 @@ public class PathGuardTests : IDisposable
     }
 
     [Fact]
+    public async Task Build_refuses_an_output_that_reaches_the_fixture_through_a_symlink()
+    {
+        var index = Path.Combine(Path.GetTempPath(), "polifemo-guard-link", ".index");
+        Directory.CreateDirectory(index);
+        var alias = Path.Combine(index, "alias");
+        if (Directory.Exists(alias)) Directory.Delete(alias);
+        Directory.CreateSymbolicLink(alias, _ws.Path);
+        try
+        {
+            var ex = await Assert.ThrowsAsync<FixturePreparationException>(() =>
+                FixtureBuilder.BuildAsync(_ws.Path, Path.Combine(alias, "corpus"), TestContext.Current.CancellationToken));
+            Assert.Equal("FIX_BAD_OUT", ex.Code);
+            Assert.True(Directory.Exists(_ws.Path));
+        }
+        finally
+        {
+            Directory.Delete(alias);
+        }
+    }
+
+    [Fact]
     public async Task Mutate_refuses_a_worktree_outside_an_index_folder()
     {
         var ex = await Assert.ThrowsAsync<FixturePreparationException>(() =>

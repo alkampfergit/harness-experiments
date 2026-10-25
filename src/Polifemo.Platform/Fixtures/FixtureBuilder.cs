@@ -17,14 +17,14 @@ public static class FixtureBuilder
 
     public static async Task<BuiltFixture> BuildAsync(string fixtureDir, string outDir, CancellationToken ct = default)
     {
-        fixtureDir = Path.GetFullPath(fixtureDir);
+        fixtureDir = ResolveLinks(fixtureDir);
         outDir = Path.GetFullPath(outDir);
         if (!Directory.Exists(fixtureDir))
             throw new FixturePreparationException("FIX_NOT_FOUND", $"Fixture directory '{fixtureDir}' does not exist.");
         if (!UnderIndexFolder(outDir))
             throw new FixturePreparationException("FIX_BAD_OUT", $"Output '{outDir}' must be inside a '.index' folder (not the '.index' root itself).");
 
-        if (Overlaps(fixtureDir, outDir))
+        if (Overlaps(fixtureDir, ResolveLinks(outDir)))
             throw new FixturePreparationException("FIX_BAD_OUT", $"Output '{outDir}' and fixture '{fixtureDir}' must be disjoint folders.");
 
         if (Directory.Exists(outDir)) Directory.Delete(outDir, recursive: true);
@@ -65,6 +65,27 @@ public static class FixtureBuilder
 
         static bool IsSameOrInside(string parent, string child) =>
             child == parent || child.StartsWith(parent + Path.DirectorySeparatorChar, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Full path with every existing symlink or reparse point resolved, so that two spellings of
+    /// the same directory compare equal. Components that do not exist yet are kept as written.
+    /// </summary>
+    internal static string ResolveLinks(string path)
+    {
+        var current = Path.GetFullPath(path);
+        var root = Path.GetPathRoot(current) ?? string.Empty;
+        var resolved = root;
+        foreach (var segment in current[root.Length..].Split(
+                     Path.DirectorySeparatorChar, StringSplitOptions.RemoveEmptyEntries))
+        {
+            resolved = Path.Combine(resolved, segment);
+            var info = new DirectoryInfo(resolved);
+            if (!info.Exists) continue;
+            var target = info.ResolveLinkTarget(returnFinalTarget: true);
+            if (target is not null) resolved = target.FullName;
+        }
+        return resolved.TrimEnd(Path.DirectorySeparatorChar);
     }
 
     private static void CopyTree(string source, string target)
