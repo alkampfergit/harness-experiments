@@ -1,7 +1,7 @@
 # Contract: `polifemo` CLI
 
 These are the only executable entry points delivered by this feature. Every command:
-- writes a single JSON document to stdout (`--format json`, the default) or a human summary (`--format text`);
+- writes a single JSON document to stdout;
 - writes diagnostics to stderr, without credentials or sample source text;
 - honors Ctrl+C as cancellation: it exits with code 130 and writes no partial success.
 

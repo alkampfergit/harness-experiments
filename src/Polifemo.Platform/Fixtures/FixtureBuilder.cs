@@ -24,6 +24,9 @@ public static class FixtureBuilder
         if (!UnderIndexFolder(outDir))
             throw new FixturePreparationException("FIX_BAD_OUT", $"Output '{outDir}' must be inside a '.index' folder.");
 
+        if (Overlaps(fixtureDir, outDir))
+            throw new FixturePreparationException("FIX_BAD_OUT", $"Output '{outDir}' and fixture '{fixtureDir}' must be disjoint folders.");
+
         if (Directory.Exists(outDir)) Directory.Delete(outDir, recursive: true);
         Directory.CreateDirectory(outDir);
 
@@ -46,6 +49,17 @@ public static class FixtureBuilder
 
     internal static bool UnderIndexFolder(string path) =>
         path.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar).Contains(".index");
+
+    /// <summary>True when the two paths are equal or one lies inside the other.</summary>
+    internal static bool Overlaps(string a, string b)
+    {
+        a = Path.GetFullPath(a).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        b = Path.GetFullPath(b).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        return IsSameOrInside(a, b) || IsSameOrInside(b, a);
+
+        static bool IsSameOrInside(string parent, string child) =>
+            child == parent || child.StartsWith(parent + Path.DirectorySeparatorChar, StringComparison.Ordinal);
+    }
 
     private static void CopyTree(string source, string target)
     {

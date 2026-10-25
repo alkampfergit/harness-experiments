@@ -30,11 +30,24 @@ public sealed class TokenSaveGraph
     public static async Task<TokenSaveGraph> LoadAsync(
         string worktree, CompatibilityChecker? checker = null, CancellationToken ct = default)
     {
-        var report = await (checker ?? new CompatibilityChecker()).CheckAsync(worktree, PlatformPins.TokenSave, ct);
+        checker ??= new CompatibilityChecker();
+
+        // Resolve once, then verify and read the same database inside one read transaction.
+        ResolvedDatabase db;
+        try
+        {
+            db = await checker.Resolver.ResolveAsync(worktree, ct);
+        }
+        catch (ActiveDatabaseResolutionException ex)
+        {
+            throw new TokenSaveCompatibilityException([new Mismatch(ex.Code, ".tokensave", null, ex.Message)]);
+        }
+
+        using var reader = TokenSaveReader.OpenReadOnly(db.DatabasePath);
+        reader.BeginSnapshot();
+        var report = await checker.CheckOpenAsync(worktree, PlatformPins.TokenSave, db, reader, ct);
         if (!report.Ok) throw new TokenSaveCompatibilityException(report.Mismatches);
 
-        var db = await new ActiveDatabaseResolver().ResolveAsync(worktree, ct);
-        using var reader = TokenSaveReader.OpenReadOnly(db.DatabasePath);
         return new TokenSaveGraph
         {
             Symbols = reader.Symbols(),

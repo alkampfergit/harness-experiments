@@ -28,6 +28,9 @@ public sealed partial class SamplePreparer(string workRoot)
             throw new FixturePreparationException("PREP_BAD_NAME", $"'{name}' resolves outside the work directory.");
 
         samplePath = Path.GetFullPath(samplePath);
+        if (FixtureBuilder.Overlaps(samplePath, target) || FixtureBuilder.Overlaps(samplePath, target + ".tmp")
+            || FixtureBuilder.Overlaps(samplePath, Path.Combine(workRoot, ".empty-hooks")))
+            throw new FixturePreparationException("PREP_BAD_NAME", $"'{target}' overlaps the sample '{samplePath}'.");
         await EnsureRepositoryAsync(samplePath, ct);
         var sha = await ResolveCommitAsync(samplePath, commit, ct);
 

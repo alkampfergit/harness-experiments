@@ -21,6 +21,13 @@ public static partial class WorktreeFactory
         if (!NamePattern().IsMatch(name))
             throw new FixturePreparationException("PREP_BAD_NAME", $"'{name}' is not a valid worktree name.");
 
+        if (!FixtureBuilder.UnderIndexFolder(workDir) || !File.Exists(System.IO.Path.Combine(workDir, ".polifemo-prep.json")))
+            throw new FixturePreparationException("PREP_NOT_PREPARED", $"'{workDir}' is not a prepared clone under '.index'.");
+        var ownGitDir = System.IO.Path.Combine(workDir, ".git");
+        var gitDir = await Git.RunAsync(workDir, ["rev-parse", "--absolute-git-dir"], ct: ct);
+        if (System.IO.Path.GetFullPath(gitDir) != ownGitDir)
+            throw new FixturePreparationException("PREP_NOT_PREPARED", $"'{workDir}' does not own its git directory.");
+
         var target = $"{workDir}+{name}";
         if (Directory.Exists(target))
             throw new FixturePreparationException("PREP_TARGET_EXISTS", $"'{target}' already exists.");

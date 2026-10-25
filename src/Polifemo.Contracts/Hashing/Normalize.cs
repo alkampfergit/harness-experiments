@@ -34,6 +34,7 @@ public static partial class Normalize
         var depth = 0;
         for (var i = 0; i < text.Length - 1; i++)
         {
+            if (SkipLiteralOrComment(text, ref i)) continue;
             if (text[i] is '(' or '[' or '{') depth++;
             else if (text[i] is ')' or ']' or '}') depth = Math.Max(0, depth - 1);
             else if (depth == 0 && text[i] == '=' && text[i + 1] == '>')
@@ -43,5 +44,67 @@ public static partial class Normalize
             }
         }
         return Whitespace().Replace(text, " ").Trim();
+    }
+
+    /// <summary>
+    /// When a string, character or interpolated literal (regular, verbatim, raw) or a comment starts at
+    /// <paramref name="i"/>, moves <paramref name="i"/> to its last character and returns true.
+    /// An unterminated literal swallows the rest of the text.
+    /// </summary>
+    private static bool SkipLiteralOrComment(string text, ref int i)
+    {
+        var c = text[i];
+        if (c == '/' && i + 1 < text.Length && text[i + 1] is '/' or '*')
+        {
+            if (text[i + 1] == '/')
+            {
+                var nl = text.IndexOf('\n', i);
+                i = nl < 0 ? text.Length - 1 : nl;
+            }
+            else
+            {
+                var end = text.IndexOf("*/", i + 2, StringComparison.Ordinal);
+                i = end < 0 ? text.Length - 1 : end + 1;
+            }
+            return true;
+        }
+
+        if (c == '\'')
+        {
+            for (var j = i + 1; j < text.Length; j++)
+            {
+                if (text[j] == '\\') j++;
+                else if (text[j] == '\'') { i = j; return true; }
+            }
+            i = text.Length - 1;
+            return true;
+        }
+
+        // Prefixes $ and @ (any order) before the opening quote; raw strings start with three or more quotes.
+        var start = i;
+        while (start < text.Length && text[start] is '$' or '@') start++;
+        if (start >= text.Length || text[start] != '"') return false;
+
+        var verbatim = text.AsSpan(i, start - i).Contains('@');
+        var quotes = 0;
+        while (start + quotes < text.Length && text[start + quotes] == '"') quotes++;
+        if (quotes >= 3)
+        {
+            var close = text.IndexOf(new string('"', quotes), start + quotes, StringComparison.Ordinal);
+            i = close < 0 ? text.Length - 1 : close + quotes - 1;
+            return true;
+        }
+
+        for (var j = start + 1; j < text.Length; j++)
+        {
+            if (!verbatim && text[j] == '\\') j++;
+            else if (text[j] == '"')
+            {
+                if (verbatim && j + 1 < text.Length && text[j + 1] == '"') j++;
+                else { i = j; return true; }
+            }
+        }
+        i = text.Length - 1;
+        return true;
     }
 }

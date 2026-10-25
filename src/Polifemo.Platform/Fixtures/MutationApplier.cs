@@ -21,6 +21,8 @@ public static class MutationApplier
     {
         worktree = System.IO.Path.GetFullPath(worktree);
         mutationDir = System.IO.Path.GetFullPath(mutationDir);
+        if (!FixtureBuilder.UnderIndexFolder(worktree))
+            throw new FixturePreparationException("MUT_BAD_WORKTREE", $"Worktree '{worktree}' must be inside a '.index' folder; corpora are read only.");
         var doc = await ReadAsync(mutationDir, ct);
 
         var head = await Git.RunAsync(worktree, ["rev-parse", "HEAD"], ct: ct);

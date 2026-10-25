@@ -135,6 +135,10 @@ public class HashingTests
     [InlineData("public Money Add(Money other) => new(decimal.Round(Amount + other.Amount, 2), Currency)", "public Money Add(Money other)")]
     [InlineData("void M(Func<int, int> f = null)", "void M(Func<int, int> f = null)")]
     [InlineData("void M(Func<int, int> f)", "void M(Func<int, int> f)")]
+    [InlineData("int M(string value = \"(\") => 1", "int M(string value = \"(\")")]
+    [InlineData("int M(char c = '(') => 1", "int M(char c = '(')")]
+    [InlineData("int M(string v = @\"a\"\"(\") => 1", "int M(string v = @\"a\"\"(\")")]
+    [InlineData("[Attr(\"[\")] int M() => 1", "[Attr(\"[\")] int M()")]
     public void Signature_drops_an_expression_body_so_that_editing_a_body_keeps_the_identity(string input, string expected) =>
         Assert.Equal(expected, Normalize.Signature(input));
 

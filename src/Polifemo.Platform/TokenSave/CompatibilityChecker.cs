@@ -54,6 +54,24 @@ public sealed partial class CompatibilityChecker(
         return new CompatibilityReport(binary, indexVersion, relative, db.Resolution, mismatches, warnings);
     }
 
+    internal ActiveDatabaseResolver Resolver => resolver;
+
+    /// <summary>
+    /// Checks an already resolved and opened database, so the caller can read the graph from the very
+    /// database (and read transaction) that was verified.
+    /// </summary>
+    internal async Task<CompatibilityReport> CheckOpenAsync(
+        string worktree, string expectedVersion, ResolvedDatabase db, TokenSaveReader reader, CancellationToken ct = default)
+    {
+        var mismatches = new List<Mismatch>();
+        var warnings = new List<Mismatch>();
+        var binary = await binaryVersion(ct);
+        if (binary != expectedVersion)
+            mismatches.Add(new Mismatch("TS_VERSION_MISMATCH", "tokensave --version", expectedVersion, binary));
+        var indexVersion = Compare(reader, expectedVersion, mismatches, warnings);
+        return new CompatibilityReport(binary, indexVersion, Path.GetRelativePath(worktree, db.DatabasePath), db.Resolution, mismatches, warnings);
+    }
+
     private string? Compare(TokenSaveReader reader, string expectedVersion, List<Mismatch> mismatches, List<Mismatch> warnings)
     {
         var tables = reader.Tables();

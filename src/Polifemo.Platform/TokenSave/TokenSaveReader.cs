@@ -30,6 +30,17 @@ internal sealed class TokenSaveReader : IDisposable
         return new TokenSaveReader(connection);
     }
 
+    /// <summary>Starts a read transaction so every following query sees one consistent snapshot.</summary>
+    public void BeginSnapshot()
+    {
+        using var begin = _connection.CreateCommand();
+        begin.CommandText = "BEGIN";
+        begin.ExecuteNonQuery();
+        using var touch = _connection.CreateCommand();
+        touch.CommandText = "SELECT count(*) FROM sqlite_master";
+        touch.ExecuteScalar();
+    }
+
     public IReadOnlySet<string> Tables()
     {
         using var cmd = _connection.CreateCommand();
@@ -70,7 +81,7 @@ internal sealed class TokenSaveReader : IDisposable
             r.IsDBNull(3) ? null : r.GetInt32(3), r.IsDBNull(4) ? null : r.GetInt32(4)));
 
     public IReadOnlyList<UnresolvedRow> Unresolved() => Query(
-        "SELECT from_node_id, reference_name, reference_kind, line, file_path FROM unresolved_refs ORDER BY id",
+        "SELECT from_node_id, reference_name, reference_kind, line, file_path FROM unresolved_refs ORDER BY file_path, line, reference_name, from_node_id, reference_kind",
         r => new UnresolvedRow(r.GetString(0), r.GetString(1), r.GetString(2), r.GetInt32(3), r.GetString(4)));
 
     public IReadOnlyList<AmbiguousRow> Ambiguous() => Query(

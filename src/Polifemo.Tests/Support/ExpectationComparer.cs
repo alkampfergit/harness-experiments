@@ -55,5 +55,6 @@ public static class ExpectationComparer
         failures.AddRange(e.Except(o).Select(x => $"MISSING {label}: {x}"));
         failures.AddRange(o.Except(e).Select(x => $"UNEXPECTED {label}: {x}"));
         failures.AddRange(e.GroupBy(x => x).Where(g => g.Count() > 1).Select(g => $"DUPLICATE {label} in record: {g.Key}"));
+        failures.AddRange(o.GroupBy(x => x).Where(g => g.Count() > 1).Select(g => $"DUPLICATE {label} observed: {g.Key}"));
     }
 }
