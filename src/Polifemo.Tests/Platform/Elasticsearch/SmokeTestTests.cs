@@ -59,6 +59,15 @@ public class SmokeTestTests
     }
 
     [Fact]
+    public void Url_with_embedded_credentials_is_rejected_without_echoing_the_secret()
+    {
+        var ex = Assert.Throws<SearchStoreException>(() => SmokeOptions.FromEnvironment("http://elastic:s3cret@localhost:9200", null));
+
+        Assert.Equal("ES_URL_HAS_CREDENTIALS", ex.Code);
+        Assert.DoesNotContain("s3cret", ex.Message);
+    }
+
+    [Fact]
     public async Task Real_store_passes_bm25_and_knn_and_cleans_up()
     {
         var url = Environment.GetEnvironmentVariable("ELASTICSEARCH_URL");
