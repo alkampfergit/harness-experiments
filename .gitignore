@@ -21,3 +21,5 @@ obj/
 **/.tokensave/
 *.received
 samples.local.md
+TestResults/
+coverage/
