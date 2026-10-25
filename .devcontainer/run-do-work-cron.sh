@@ -6,6 +6,15 @@ SETUP_BRANCH="feature/001_first"
 
 cd "$REPO_DIR" || exit 1
 
+# Serialize cron invocations: hold an exclusive lock for the whole run so that two
+# runners never switch branches or start ticks concurrently. Sampling Automata's lock
+# state below is only a guard against a manually started tick.
+exec 9>"$REPO_DIR/.git/polifemo-do-work.lock"
+if ! flock -n 9; then
+    printf 'Another do-work runner holds the checkout lock; skipping.\n'
+    exit 0
+fi
+
 # do-work can leave the shared checkout on its base branch. Check its global
 # lock before switching; the JSON report remains parseable even on a base
 # branch where this feature's .automata/config.json is absent.
@@ -19,6 +28,7 @@ try:
     print("busy" if lock.get("tickInFlight") else "free")
 except Exception:
     print("unknown")'
+    return 0
 }
 
 state=$(lock_state)

@@ -10,11 +10,12 @@ set -euo pipefail
 # transport: a redirect must not be able to downgrade the fetch to plaintext.
 CURL_TLS_OPTS=(--proto '=https' --tlsv1.2)
 
+BANNER="=========================================="
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
-echo "=========================================="
+echo "$BANNER"
 echo "Starting devcontainer post-creation setup"
-echo "=========================================="
+echo "$BANNER"
 
 # Fix apt sources issue with yarn
 echo "Cleaning up apt sources..."
@@ -193,6 +194,6 @@ if [[ -f "$REPO_DIR/.gitmodules" ]] && grep -q 'testrepo/cisharpai' "$REPO_DIR/.
     git -C "$REPO_DIR" submodule update --init testrepo/cisharpai || true
 fi
 
-echo "=========================================="
+echo "$BANNER"
 echo "Devcontainer post-creation setup complete"
-echo "=========================================="
+echo "$BANNER"

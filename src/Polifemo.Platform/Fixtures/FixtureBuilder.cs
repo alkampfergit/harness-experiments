@@ -22,7 +22,7 @@ public static class FixtureBuilder
         if (!Directory.Exists(fixtureDir))
             throw new FixturePreparationException("FIX_NOT_FOUND", $"Fixture directory '{fixtureDir}' does not exist.");
         if (!UnderIndexFolder(outDir))
-            throw new FixturePreparationException("FIX_BAD_OUT", $"Output '{outDir}' must be inside a '.index' folder.");
+            throw new FixturePreparationException("FIX_BAD_OUT", $"Output '{outDir}' must be inside a '.index' folder (not the '.index' root itself).");
 
         if (Overlaps(fixtureDir, outDir))
             throw new FixturePreparationException("FIX_BAD_OUT", $"Output '{outDir}' and fixture '{fixtureDir}' must be disjoint folders.");
@@ -47,8 +47,14 @@ public static class FixtureBuilder
         return new BuiltFixture(commit, tree, outDir);
     }
 
-    internal static bool UnderIndexFolder(string path) =>
-        path.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar).Contains(".index");
+    /// <summary>True when the path lies strictly inside a '.index' folder (the '.index' root itself is rejected).</summary>
+    internal static bool UnderIndexFolder(string path)
+    {
+        var segments = path.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar,
+            StringSplitOptions.RemoveEmptyEntries);
+        var last = Array.LastIndexOf(segments, ".index");
+        return last >= 0 && last < segments.Length - 1;
+    }
 
     /// <summary>True when the two paths are equal or one lies inside the other.</summary>
     internal static bool Overlaps(string a, string b)
