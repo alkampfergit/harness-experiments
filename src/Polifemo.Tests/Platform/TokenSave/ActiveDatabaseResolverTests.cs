@@ -92,3 +92,42 @@ public class ActiveDatabaseResolverTests : IDisposable
         Assert.Equal("TS_META_NO_DB", ex.Code);
     }
 }
+
+public class ActiveDatabaseResolverEdgeTests : IDisposable
+{
+    private readonly TestWorkspace _ws = new();
+    public void Dispose() => _ws.Dispose();
+
+    private async Task<ActiveDatabaseResolutionException> Fail(string metaJson)
+    {
+        new SyntheticTokenSave { BranchMetaJson = metaJson }.Build(_ws.Path);
+        var resolver = new ActiveDatabaseResolver((_, _) => Task.FromResult<string?>("main"));
+        return await Assert.ThrowsAsync<ActiveDatabaseResolutionException>(() => resolver.ResolveAsync(_ws.Path, TestContext.Current.CancellationToken));
+    }
+
+    [Fact]
+    public async Task Metadata_that_is_not_a_json_object_is_TS_META_MALFORMED() =>
+        Assert.Equal("TS_META_MALFORMED", (await Fail("[]")).Code);
+
+    [Fact]
+    public async Task Db_file_pointing_outside_tokensave_is_refused() =>
+        Assert.Equal("TS_META_NO_DB", (await Fail(SyntheticTokenSave.BranchMeta("main", ("main", "../outside.db")))).Code);
+
+    [Fact]
+    public async Task Entry_without_db_file_is_TS_META_NO_DB() =>
+        Assert.Equal("TS_META_NO_DB", (await Fail("{\"default_branch\":\"main\",\"branches\":{\"main\":{}}}")).Code);
+
+    [Fact]
+    public async Task Db_file_that_does_not_exist_is_TS_DB_MISSING() =>
+        Assert.Equal("TS_DB_MISSING", (await Fail(SyntheticTokenSave.BranchMeta("main", ("main", "ghost.db")))).Code);
+
+    [Fact]
+    public async Task Default_resolver_asks_git_for_the_branch_and_survives_a_non_repository()
+    {
+        new SyntheticTokenSave().Build(_ws.Path);
+
+        var r = await new ActiveDatabaseResolver().ResolveAsync(_ws.Path, TestContext.Current.CancellationToken);
+
+        Assert.Equal("default", r.Resolution);
+    }
+}

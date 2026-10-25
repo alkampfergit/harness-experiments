@@ -124,6 +124,7 @@ jobs:
           --report-trx-filename "{asm}_{tfm}_{arch}.trx"
           --coverage --coverage-output-format cobertura
           --coverage-output coverage.cobertura.xml
+          --coverage-settings "$GITHUB_WORKSPACE/coverage.settings.xml"
 
       - name: Publish test report
         if: ${{ !cancelled() }}
