@@ -27,7 +27,7 @@ public sealed class SmokeOptions(string url, string username, string password)
         if (Uri.TryCreate(resolvedUrl, UriKind.Absolute, out var parsed) && !string.IsNullOrEmpty(parsed.UserInfo))
             throw new SearchStoreException("ES_URL_HAS_CREDENTIALS",
                 "The Elasticsearch URL must not contain credentials; use ELASTICSEARCH_USERNAME and ELASTICSEARCH_PASSWORD.");
-        return new SmokeOptions(resolvedUrl, resolvedUsername ?? "", password);
+        return new SmokeOptions(resolvedUrl, resolvedUsername, password);
     }
 
     public override string ToString() => $"{Username}@{Url}";
