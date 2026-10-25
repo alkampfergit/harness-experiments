@@ -12,7 +12,8 @@ public sealed record MutationResult(string Base, string? Commit, string TreeSha,
 public static class MutationApplier
 {
     public const string CommitDate = "2026-01-02T00:00:00Z";
-    private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
+    private const string InvalidCode = "MUT_INVALID";
+    private const string RevParse = "rev-parse";
 
     private sealed record Op(string Kind, string? Path, string? PayloadFile, string? From, string? To, int? AtLine);
 
@@ -25,7 +26,7 @@ public static class MutationApplier
             throw new FixturePreparationException("MUT_BAD_WORKTREE", $"Worktree '{worktree}' must be inside a '.index' folder; corpora are read only.");
         var doc = await ReadAsync(mutationDir, ct);
 
-        var head = await Git.RunAsync(worktree, ["rev-parse", "HEAD"], ct: ct);
+        var head = await Git.RunAsync(worktree, [RevParse, "HEAD"], ct: ct);
         var expectedBase = doc.Base == "initial"
             ? (await Git.RunAsync(worktree, ["rev-list", "--max-parents=0", "HEAD"], ct: ct)).Split('\n')[0].Trim()
             : doc.Base;
@@ -43,11 +44,11 @@ public static class MutationApplier
             await Git.RunAsync(worktree, ["add", "--all", "--", .. changed], env, ct);
             await Git.RunAsync(worktree,
                 ["-c", "commit.gpgsign=false", "commit", "-q", "--no-verify", "-m", $"mutation: {doc.Name}"], env, ct);
-            sha = await Git.RunAsync(worktree, ["rev-parse", "HEAD"], env, ct);
+            sha = await Git.RunAsync(worktree, [RevParse, "HEAD"], env, ct);
         }
 
         var tree = commit
-            ? await Git.RunAsync(worktree, ["rev-parse", "HEAD^{tree}"], ct: ct)
+            ? await Git.RunAsync(worktree, [RevParse, "HEAD^{tree}"], ct: ct)
             : await WorkingTreeShaAsync(worktree, ct);
         return new MutationResult(head, sha, tree, changed.ToList());
     }
@@ -55,7 +56,7 @@ public static class MutationApplier
     /// <summary>Tree SHA of the working tree without committing: stages into a throw-away index file.</summary>
     private static async Task<string> WorkingTreeShaAsync(string worktree, CancellationToken ct)
     {
-        var gitDir = await Git.RunAsync(worktree, ["rev-parse", "--absolute-git-dir"], ct: ct);
+        var gitDir = await Git.RunAsync(worktree, [RevParse, "--absolute-git-dir"], ct: ct);
         var temp = System.IO.Path.Combine(gitDir, $"polifemo-index-{Guid.NewGuid():N}");
         var env = new Dictionary<string, string>(Git.IsolatedEnvironment) { ["GIT_INDEX_FILE"] = temp };
         try
@@ -73,7 +74,7 @@ public static class MutationApplier
     {
         var file = System.IO.Path.Combine(mutationDir, "mutation.json");
         if (!File.Exists(file))
-            throw new FixturePreparationException("MUT_INVALID", $"'{file}' does not exist.");
+            throw new FixturePreparationException(InvalidCode, $"'{file}' does not exist.");
 
         try
         {
@@ -87,7 +88,7 @@ public static class MutationApplier
         }
         catch (Exception ex) when (ex is JsonException or KeyNotFoundException or InvalidOperationException)
         {
-            throw new FixturePreparationException("MUT_INVALID", $"'{file}' is not a valid mutation: {ex.Message}");
+            throw new FixturePreparationException(InvalidCode, $"'{file}' is not a valid mutation: {ex.Message}");
         }
 
         static string? Str(JsonElement e, string name) =>
@@ -108,14 +109,14 @@ public static class MutationApplier
                 break;
             case "delete":
                 var del = Resolve(worktree, op.Path);
-                if (!File.Exists(del)) throw new FixturePreparationException("MUT_INVALID", $"Cannot delete missing '{op.Path}'.");
+                if (!File.Exists(del)) throw new FixturePreparationException(InvalidCode, $"Cannot delete missing '{op.Path}'.");
                 File.Delete(del);
                 changed.Add(Relative(worktree, op.Path));
                 break;
             case "rename":
                 var from = Resolve(worktree, op.From);
                 var to = Resolve(worktree, op.To);
-                if (!File.Exists(from)) throw new FixturePreparationException("MUT_INVALID", $"Cannot rename missing '{op.From}'.");
+                if (!File.Exists(from)) throw new FixturePreparationException(InvalidCode, $"Cannot rename missing '{op.From}'.");
                 Directory.CreateDirectory(System.IO.Path.GetDirectoryName(to)!);
                 File.Move(from, to, overwrite: false);
                 changed.Add(Relative(worktree, op.From));
@@ -126,13 +127,13 @@ public static class MutationApplier
                 changed.Add(Relative(worktree, op.Path));
                 break;
             default:
-                throw new FixturePreparationException("MUT_INVALID", $"Unknown op '{op.Kind}'.");
+                throw new FixturePreparationException(InvalidCode, $"Unknown op '{op.Kind}'.");
         }
     }
 
     private static byte[] Payload(string mutationDir, Op op)
     {
-        if (op.PayloadFile is null) throw new FixturePreparationException("MUT_INVALID", $"Op '{op.Kind}' needs a payloadFile.");
+        if (op.PayloadFile is null) throw new FixturePreparationException(InvalidCode, $"Op '{op.Kind}' needs a payloadFile.");
         var path = System.IO.Path.GetFullPath(System.IO.Path.Combine(mutationDir, op.PayloadFile));
         if (!path.StartsWith(mutationDir + System.IO.Path.DirectorySeparatorChar, StringComparison.Ordinal))
             throw new FixturePreparationException("MUT_BAD_PATH", $"Payload '{op.PayloadFile}' escapes the mutation directory.");
@@ -142,7 +143,7 @@ public static class MutationApplier
     private static void Write(string path, byte[] bytes, bool requireExisting)
     {
         if (requireExisting && !File.Exists(path))
-            throw new FixturePreparationException("MUT_INVALID", $"Cannot replace missing '{path}'.");
+            throw new FixturePreparationException(InvalidCode, $"Cannot replace missing '{path}'.");
         Directory.CreateDirectory(System.IO.Path.GetDirectoryName(path)!);
         File.WriteAllBytes(path, bytes);
     }
@@ -150,13 +151,13 @@ public static class MutationApplier
     /// <summary>Inserts the payload before 1-based line <paramref name="atLine"/>, scanning raw LF bytes.</summary>
     private static void InsertLines(string path, byte[] payload, int atLine)
     {
-        if (atLine < 1) throw new FixturePreparationException("MUT_INVALID", "insertLines needs atLine >= 1.");
+        if (atLine < 1) throw new FixturePreparationException(InvalidCode, "insertLines needs atLine >= 1.");
         var original = File.ReadAllBytes(path);
         var offset = 0;
         for (var line = 1; line < atLine; line++)
         {
             var next = Array.IndexOf(original, (byte)'\n', offset);
-            if (next < 0) throw new FixturePreparationException("MUT_INVALID", $"'{path}' has fewer than {atLine} lines.");
+            if (next < 0) throw new FixturePreparationException(InvalidCode, $"'{path}' has fewer than {atLine} lines.");
             offset = next + 1;
         }
         File.WriteAllBytes(path, [.. original.AsSpan(0, offset), .. payload, .. original.AsSpan(offset)]);

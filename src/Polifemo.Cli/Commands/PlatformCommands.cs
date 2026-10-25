@@ -57,7 +57,7 @@ public static class PlatformCommands
         command.SetAction((parse, ct) => CliOutput.RunAsync(stdout, stderr, async () =>
         {
             var options = SmokeOptions.FromEnvironment(parse.GetValue(url), parse.GetValue(username));
-            var report = await new SmokeTest().RunAsync(options, ct);
+            var report = await SmokeTest.RunAsync(options, ct);
             return (report.Ok ? ExitCodes.Ok : ExitCodes.CheckFailed, (object)new
             {
                 ok = report.Ok,

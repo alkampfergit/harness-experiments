@@ -17,15 +17,13 @@ public sealed partial class SamplePreparer(string workRoot)
     [GeneratedRegex(@"^[A-Za-z0-9][A-Za-z0-9._-]*$")]
     private static partial Regex NamePattern();
 
+    private static readonly JsonSerializerOptions IndentedJson = new() { WriteIndented = true };
+
     public async Task<PreparedSample> PrepareAsync(
         string samplePath, string commit, string name, bool index = false, bool replace = false, CancellationToken ct = default)
     {
         workRoot = Path.GetFullPath(workRoot);
-        if (!NamePattern().IsMatch(name) || name.EndsWith(".tmp", StringComparison.Ordinal))
-            throw new FixturePreparationException("PREP_BAD_NAME", $"'{name}' is not a valid work directory name.");
-        var target = Path.GetFullPath(Path.Combine(workRoot, name));
-        if (!target.StartsWith(workRoot + Path.DirectorySeparatorChar, StringComparison.Ordinal))
-            throw new FixturePreparationException("PREP_BAD_NAME", $"'{name}' resolves outside the work directory.");
+        var target = ResolveTarget(name);
 
         samplePath = Path.GetFullPath(samplePath);
         if (FixtureBuilder.Overlaps(samplePath, target) || FixtureBuilder.Overlaps(samplePath, target + ".tmp")
@@ -34,15 +32,52 @@ public sealed partial class SamplePreparer(string workRoot)
         await EnsureRepositoryAsync(samplePath, ct);
         var sha = await ResolveCommitAsync(samplePath, commit, ct);
 
-        if (Directory.Exists(target))
-        {
-            if (!replace)
-                throw new FixturePreparationException("PREP_TARGET_EXISTS", $"'{target}' already exists; use --replace.");
-        }
+        if (Directory.Exists(target) && !replace)
+            throw new FixturePreparationException("PREP_TARGET_EXISTS", $"'{target}' already exists; use --replace.");
 
         if (index) await RequirePinnedTokenSaveAsync(ct);
 
         var before = await CaptureAsync(samplePath, ct);
+        await CloneAsync(samplePath, sha, target, ct);
+
+        var after = await CaptureAsync(samplePath, ct);
+        if (before != after)
+        {
+            Directory.Delete(target, recursive: true);
+            throw new FixturePreparationException("PREP_SOURCE_MODIFIED", $"The sample checkout '{samplePath}' changed during preparation.");
+        }
+
+        if (index)
+        {
+            var init = await Processes.ProcessRunner.RunAsync("tokensave", ["init", target], target, Git.IsolatedEnvironment, ct: ct);
+            if (init.ExitCode != 0)
+                throw new FixturePreparationException("PREP_INDEX_FAILED", $"tokensave init failed: {init.StdErr.Trim()}");
+        }
+
+        await File.WriteAllTextAsync(Path.Combine(target, ".polifemo-prep.json"), JsonSerializer.Serialize(new
+        {
+            source = samplePath,
+            commit = sha,
+            tokensave = PlatformPins.TokenSave,
+            preparedAtUtc = DateTime.UtcNow.ToString("O"),
+        }, IndentedJson), ct);
+
+        return new PreparedSample(target, sha, SourceUnchanged: true, Indexed: index);
+    }
+
+    private string ResolveTarget(string name)
+    {
+        if (!NamePattern().IsMatch(name) || name.EndsWith(".tmp", StringComparison.Ordinal))
+            throw new FixturePreparationException("PREP_BAD_NAME", $"'{name}' is not a valid work directory name.");
+        var target = Path.GetFullPath(Path.Combine(workRoot, name));
+        if (!target.StartsWith(workRoot + Path.DirectorySeparatorChar, StringComparison.Ordinal))
+            throw new FixturePreparationException("PREP_BAD_NAME", $"'{name}' resolves outside the work directory.");
+        return target;
+    }
+
+    /// <summary>Clones into <c>&lt;target&gt;.tmp</c>, checks out the commit and moves the result into place.</summary>
+    private async Task CloneAsync(string samplePath, string sha, string target, CancellationToken ct)
+    {
         var temp = target + ".tmp";
         var hooks = Path.Combine(workRoot, ".empty-hooks");
         Directory.CreateDirectory(hooks);
@@ -67,30 +102,6 @@ public sealed partial class SamplePreparer(string workRoot)
             if (Directory.Exists(temp)) Directory.Delete(temp, recursive: true);
             throw;
         }
-
-        var after = await CaptureAsync(samplePath, ct);
-        if (before != after)
-        {
-            Directory.Delete(target, recursive: true);
-            throw new FixturePreparationException("PREP_SOURCE_MODIFIED", $"The sample checkout '{samplePath}' changed during preparation.");
-        }
-
-        if (index)
-        {
-            var init = await Processes.ProcessRunner.RunAsync("tokensave", ["init", target], target, Git.IsolatedEnvironment, ct);
-            if (init.ExitCode != 0)
-                throw new FixturePreparationException("PREP_INDEX_FAILED", $"tokensave init failed: {init.StdErr.Trim()}");
-        }
-
-        await File.WriteAllTextAsync(Path.Combine(target, ".polifemo-prep.json"), JsonSerializer.Serialize(new
-        {
-            source = samplePath,
-            commit = sha,
-            tokensave = PlatformPins.TokenSave,
-            preparedAtUtc = DateTime.UtcNow.ToString("O"),
-        }, new JsonSerializerOptions { WriteIndented = true }), ct);
-
-        return new PreparedSample(target, sha, SourceUnchanged: true, Indexed: index);
     }
 
     private static async Task EnsureRepositoryAsync(string path, CancellationToken ct)

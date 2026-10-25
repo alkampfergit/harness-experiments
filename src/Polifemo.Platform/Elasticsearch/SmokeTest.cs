@@ -9,6 +9,8 @@ namespace Polifemo.Platform.Elasticsearch;
 /// <summary>Connection settings. Credentials are optional; the password is never part of <see cref="ToString"/>.</summary>
 public sealed class SmokeOptions(string url, string username, string password)
 {
+    private static readonly string DefaultUrl = new UriBuilder(Uri.UriSchemeHttp, "localhost", 9200).Uri.GetLeftPart(UriPartial.Authority);
+
     public string Url { get; } = url.TrimEnd('/');
     public string Username { get; } = username;
     internal string Password { get; } = password;
@@ -22,7 +24,7 @@ public sealed class SmokeOptions(string url, string username, string password)
         if (!string.IsNullOrEmpty(resolvedUsername) != !string.IsNullOrEmpty(password))
             throw new SearchStoreException("ES_CREDENTIALS_INCOMPLETE",
                 "Set both ELASTICSEARCH_USERNAME and ELASTICSEARCH_PASSWORD, or leave both unset for anonymous access.");
-        var resolvedUrl = url ?? Environment.GetEnvironmentVariable("ELASTICSEARCH_URL") ?? "http://localhost:9200";
+        var resolvedUrl = url ?? Environment.GetEnvironmentVariable("ELASTICSEARCH_URL") ?? DefaultUrl;
         // Errors echo the URL to both output streams, so a password embedded in it would leak.
         if (Uri.TryCreate(resolvedUrl, UriKind.Absolute, out var parsed) && !string.IsNullOrEmpty(parsed.UserInfo))
             throw new SearchStoreException("ES_URL_HAS_CREDENTIALS",
@@ -44,9 +46,11 @@ public sealed record SmokeReport(string ServerVersion, string? License, IReadOnl
 /// Exercises BM25 and top-level <c>knn</c> on synthetic documents (research R4), with optional Basic authentication.
 /// It uses no licensed retriever (RRF, text_similarity_reranker) and no inference endpoint.
 /// </summary>
-public sealed class SmokeTest
+public static class SmokeTest
 {
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
+
+    private static readonly float[] KnnQueryVector = [0.05f, 0.95f, 0.1f, 0f];
 
     private static readonly (string Id, string Text, float[] Vec)[] Docs =
     [
@@ -57,7 +61,7 @@ public sealed class SmokeTest
         ("5", "echo elderberry jam", [0.7f, 0.7f, 0f, 0f]),
     ];
 
-    public async Task<SmokeReport> RunAsync(SmokeOptions options, CancellationToken ct = default)
+    public static async Task<SmokeReport> RunAsync(SmokeOptions options, CancellationToken ct = default)
     {
         using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
         if (!string.IsNullOrEmpty(options.Username) && !string.IsNullOrEmpty(options.Password))
@@ -95,7 +99,7 @@ public sealed class SmokeTest
         return new SmokeReport(version, license, checks);
     }
 
-    private static Task CreateIndexAsync(HttpClient http, SmokeOptions o, string index, CancellationToken ct) =>
+    private static Task<JsonElement> CreateIndexAsync(HttpClient http, SmokeOptions o, string index, CancellationToken ct) =>
         SendAsync(http, o, HttpMethod.Put, $"/{index}", new
         {
             settings = new { number_of_shards = 1, number_of_replicas = 0 },
@@ -137,7 +141,7 @@ public sealed class SmokeTest
         var r = await SendAsync(http, o, HttpMethod.Post, $"/{index}/_search", new
         {
             size = 1,
-            knn = new { field = "vec", query_vector = new[] { 0.05f, 0.95f, 0.1f, 0f }, k = 1, num_candidates = 5 },
+            knn = new { field = "vec", query_vector = KnnQueryVector, k = 1, num_candidates = 5 },
         }, ct);
         return Assert("knn", TopHitId(r), "2");
     }

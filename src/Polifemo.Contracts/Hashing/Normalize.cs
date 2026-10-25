@@ -53,33 +53,47 @@ public static partial class Normalize
     /// </summary>
     private static bool SkipLiteralOrComment(string text, ref int i)
     {
-        var c = text[i];
-        if (c == '/' && i + 1 < text.Length && text[i + 1] is '/' or '*')
+        if (text[i] == '/' && i + 1 < text.Length && text[i + 1] is '/' or '*')
         {
-            if (text[i + 1] == '/')
-            {
-                var nl = text.IndexOf('\n', i);
-                i = nl < 0 ? text.Length - 1 : nl;
-            }
-            else
-            {
-                var end = text.IndexOf("*/", i + 2, StringComparison.Ordinal);
-                i = end < 0 ? text.Length - 1 : end + 1;
-            }
+            i = text[i + 1] == '/' ? EndOfLineComment(text, i) : EndOfBlockComment(text, i);
             return true;
         }
 
-        if (c == '\'')
+        if (text[i] == '\'')
         {
-            for (var j = i + 1; j < text.Length; j++)
-            {
-                if (text[j] == '\\') j++;
-                else if (text[j] == '\'') { i = j; return true; }
-            }
-            i = text.Length - 1;
+            i = EndOfCharLiteral(text, i);
             return true;
         }
 
+        return TrySkipString(text, ref i);
+    }
+
+    private static int EndOfLineComment(string text, int i)
+    {
+        var nl = text.IndexOf('\n', i);
+        return nl < 0 ? text.Length - 1 : nl;
+    }
+
+    private static int EndOfBlockComment(string text, int i)
+    {
+        var end = text.IndexOf("*/", i + 2, StringComparison.Ordinal);
+        return end < 0 ? text.Length - 1 : end + 1;
+    }
+
+    private static int EndOfCharLiteral(string text, int i)
+    {
+        var j = i + 1;
+        while (j < text.Length)
+        {
+            if (text[j] == '\\') j += 2;
+            else if (text[j] == '\'') return j;
+            else j++;
+        }
+        return text.Length - 1;
+    }
+
+    private static bool TrySkipString(string text, ref int i)
+    {
         // Prefixes $ and @ (any order) before the opening quote; raw strings start with three or more quotes.
         var start = i;
         while (start < text.Length && text[start] is '$' or '@') start++;
@@ -88,23 +102,26 @@ public static partial class Normalize
         var verbatim = text.AsSpan(i, start - i).Contains('@');
         var quotes = 0;
         while (start + quotes < text.Length && text[start + quotes] == '"') quotes++;
-        if (quotes >= 3)
-        {
-            var close = text.IndexOf(new string('"', quotes), start + quotes, StringComparison.Ordinal);
-            i = close < 0 ? text.Length - 1 : close + quotes - 1;
-            return true;
-        }
-
-        for (var j = start + 1; j < text.Length; j++)
-        {
-            if (!verbatim && text[j] == '\\') j++;
-            else if (text[j] == '"')
-            {
-                if (verbatim && j + 1 < text.Length && text[j + 1] == '"') j++;
-                else { i = j; return true; }
-            }
-        }
-        i = text.Length - 1;
+        i = quotes >= 3 ? EndOfRawString(text, start, quotes) : EndOfRegularString(text, start, verbatim);
         return true;
+    }
+
+    private static int EndOfRawString(string text, int start, int quotes)
+    {
+        var close = text.IndexOf(new string('"', quotes), start + quotes, StringComparison.Ordinal);
+        return close < 0 ? text.Length - 1 : close + quotes - 1;
+    }
+
+    private static int EndOfRegularString(string text, int start, bool verbatim)
+    {
+        var j = start + 1;
+        while (j < text.Length)
+        {
+            if (!verbatim && text[j] == '\\') j += 2;
+            else if (text[j] != '"') j++;
+            else if (verbatim && j + 1 < text.Length && text[j + 1] == '"') j += 2;
+            else return j;
+        }
+        return text.Length - 1;
     }
 }

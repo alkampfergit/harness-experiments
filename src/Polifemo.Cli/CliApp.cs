@@ -19,7 +19,7 @@ public static class CliApp
         var parse = root.Parse(args);
         if (parse.Errors.Count > 0)
         {
-            foreach (var error in parse.Errors) stderr.WriteLine(error.Message);
+            foreach (var error in parse.Errors) await stderr.WriteLineAsync(error.Message);
             return ExitCodes.InvalidArguments;
         }
 

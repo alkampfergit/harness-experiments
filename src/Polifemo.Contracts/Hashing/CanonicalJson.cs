@@ -7,9 +7,11 @@ namespace Polifemo.Contracts.Hashing;
 /// <summary>Keys sorted ordinally, no insignificant whitespace, numbers in the invariant culture, UTF-8.</summary>
 public static class CanonicalJson
 {
+    private static readonly JsonSerializerOptions WebOptions = new(JsonSerializerDefaults.Web);
+
     public static string Serialize(object? value)
     {
-        var node = value as JsonNode ?? JsonSerializer.SerializeToNode(value, new JsonSerializerOptions(JsonSerializerDefaults.Web));
+        var node = value as JsonNode ?? JsonSerializer.SerializeToNode(value, WebOptions);
         using var stream = new MemoryStream();
         using (var writer = new Utf8JsonWriter(stream))
             Write(writer, node);

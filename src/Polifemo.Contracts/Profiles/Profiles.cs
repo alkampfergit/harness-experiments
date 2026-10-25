@@ -17,6 +17,12 @@ public sealed record ProfileVersions(
     string EmbeddingProfileId,
     string InputTemplateVersion);
 
+/// <summary>Which model produced the vectors, pinned to an immutable revision.</summary>
+public sealed record EmbeddingModelRef(string Provider, string Model, string Revision);
+
+/// <summary>The task prefixes a model requires in front of documents and queries.</summary>
+public sealed record EmbeddingPrefixes(string Document, string Query);
+
 /// <summary>Everything that decides which vector space an embedding lives in.</summary>
 public sealed partial record EmbeddingProfile
 {
@@ -35,9 +41,10 @@ public sealed partial record EmbeddingProfile
     public bool Normalize { get; }
 
     public EmbeddingProfile(
-        string provider, string model, string revision, string documentPrefix, string queryPrefix,
+        EmbeddingModelRef modelRef, EmbeddingPrefixes prefixes,
         string tokenizer, int maxTokens, int dimension, string pooling, bool normalize)
     {
+        var (provider, model, revision) = modelRef;
         if (string.IsNullOrWhiteSpace(provider)) throw new ArgumentException("Provider is required.", nameof(provider));
         if (string.IsNullOrWhiteSpace(model)) throw new ArgumentException("Model is required.", nameof(model));
         if (!CommitSha().IsMatch(revision))
@@ -48,8 +55,8 @@ public sealed partial record EmbeddingProfile
         Provider = provider;
         Model = model;
         Revision = revision;
-        DocumentPrefix = documentPrefix;
-        QueryPrefix = queryPrefix;
+        DocumentPrefix = prefixes.Document;
+        QueryPrefix = prefixes.Query;
         Tokenizer = tokenizer;
         MaxTokens = maxTokens;
         Dimension = dimension;

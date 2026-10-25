@@ -29,7 +29,7 @@ internal static class Git
 
     public static Task<ProcessResult> TryAsync(
         string? workDir, IEnumerable<string> args, IReadOnlyDictionary<string, string>? env = null, CancellationToken ct = default) =>
-        ProcessRunner.RunAsync("git", args, workDir, env ?? IsolatedEnvironment, ct);
+        ProcessRunner.RunAsync("git", args, workDir, env ?? IsolatedEnvironment, ct: ct);
 
     /// <summary>Runs git and returns trimmed stdout. A failure is a typed <c>GIT_FAILED</c> error.</summary>
     public static async Task<string> RunAsync(

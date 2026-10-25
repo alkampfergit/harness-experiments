@@ -19,8 +19,8 @@ public static class ProcessRunner
         IEnumerable<string> args,
         string? workingDirectory = null,
         IReadOnlyDictionary<string, string>? environment = null,
-        CancellationToken ct = default,
-        TimeSpan? timeout = null)
+        TimeSpan? timeout = null,
+        CancellationToken ct = default)
     {
         var psi = new ProcessStartInfo(fileName)
         {
@@ -48,7 +48,10 @@ public static class ProcessRunner
         }
         catch (OperationCanceledException)
         {
-            try { p.Kill(entireProcessTree: true); } catch (InvalidOperationException) { }
+            try { p.Kill(entireProcessTree: true); } catch (InvalidOperationException)
+            {
+                // The process already exited, so there is nothing left to stop.
+            }
             if (ct.IsCancellationRequested) throw;
             throw new PolifemoException("PROCESS_TIMEOUT", $"'{fileName}' did not finish within {(timeout ?? DefaultTimeout).TotalSeconds:0} s and was stopped.");
         }
