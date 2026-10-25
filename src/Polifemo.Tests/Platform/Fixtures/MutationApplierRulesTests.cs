@@ -5,7 +5,7 @@ using Polifemo.Tests.Support;
 namespace Polifemo.Tests.Platform.Fixtures;
 
 /// <summary>Mutation rules on a hand-made repository: what an op does, and what it must refuse.</summary>
-public class MutationApplierRulesTests : IDisposable
+public sealed class MutationApplierRulesTests : IDisposable
 {
     private readonly TestWorkspace _ws = new();
     public void Dispose() => _ws.Dispose();

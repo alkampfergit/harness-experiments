@@ -4,7 +4,7 @@ using Polifemo.Tests.Support;
 
 namespace Polifemo.Tests.Platform.Fixtures;
 
-public class SamplePreparerTests : IDisposable
+public sealed class SamplePreparerTests : IDisposable
 {
     private readonly TestWorkspace _ws = new();
     public void Dispose() => _ws.Dispose();

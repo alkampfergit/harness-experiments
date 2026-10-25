@@ -3,7 +3,7 @@ using Polifemo.Tests.Support;
 
 namespace Polifemo.Tests.Platform.Fixtures;
 
-public class GitInfoTests : IDisposable
+public sealed class GitInfoTests : IDisposable
 {
     private readonly TestWorkspace _ws = new();
     public void Dispose() => _ws.Dispose();

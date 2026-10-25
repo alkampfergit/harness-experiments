@@ -5,7 +5,7 @@ using Polifemo.Tests.Support;
 
 namespace Polifemo.Tests.Platform.Fixtures;
 
-public class WorktreeIsolationTests : IDisposable
+public sealed class WorktreeIsolationTests : IDisposable
 {
     private readonly TestWorkspace _ws = new();
     public void Dispose() => _ws.Dispose();

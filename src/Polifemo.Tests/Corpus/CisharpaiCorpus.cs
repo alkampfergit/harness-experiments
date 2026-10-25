@@ -32,11 +32,13 @@ public sealed class CisharpaiCorpus : IAsyncLifetime
     public IReadOnlyList<ExpSymbol> Symbols { get; private set; } = [];
     public IReadOnlyList<ExpRelationship> Relationships { get; private set; } = [];
 
+    private static readonly JsonSerializerOptions WebOptions = new(JsonSerializerDefaults.Web);
+
     public static CorpusProvenance LoadProvenance()
     {
         using var doc = JsonDocument.Parse(File.ReadAllText(Path.Combine(RepoRoot, "testrepo", "corpora.json")));
         var entry = doc.RootElement.GetProperty("corpora").EnumerateArray().Single(c => c.GetProperty("name").GetString() == "cisharpai");
-        return JsonSerializer.Deserialize<CorpusProvenance>(entry.GetRawText(), new JsonSerializerOptions(JsonSerializerDefaults.Web))!;
+        return JsonSerializer.Deserialize<CorpusProvenance>(entry.GetRawText(), WebOptions)!;
     }
 
     public async ValueTask InitializeAsync()
@@ -61,7 +63,7 @@ public sealed class CisharpaiCorpus : IAsyncLifetime
     }
 
     /// <summary>Skips the calling test when the corpus is absent (local runs only).</summary>
-    public void RequireAvailable()
+    public static void RequireAvailable()
     {
         if (!Available) Assert.Skip("testrepo/cisharpai is not initialized: git submodule update --init testrepo/cisharpai");
     }

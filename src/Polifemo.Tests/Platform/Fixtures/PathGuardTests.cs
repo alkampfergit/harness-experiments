@@ -4,7 +4,7 @@ using Polifemo.Tests.Support;
 
 namespace Polifemo.Tests.Platform.Fixtures;
 
-public class PathGuardTests : IDisposable
+public sealed class PathGuardTests : IDisposable
 {
     private readonly TestWorkspace _ws = new();
     public void Dispose() => _ws.Dispose();

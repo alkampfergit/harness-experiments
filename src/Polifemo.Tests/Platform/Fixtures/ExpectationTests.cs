@@ -5,8 +5,9 @@ using Polifemo.Tests.Support;
 
 namespace Polifemo.Tests.Platform.Fixtures;
 
-public class ExpectationTests : IDisposable
+public sealed class ExpectationTests : IDisposable
 {
+    private static readonly string[] BaseState = ["base"];
     private readonly TestWorkspace _ws = new();
     public void Dispose() => _ws.Dispose();
 
@@ -21,7 +22,7 @@ public class ExpectationTests : IDisposable
     [Fact]
     public void Every_state_has_a_record_and_no_record_is_orphaned()
     {
-        var expected = new[] { "base" }.Concat(SyntheticFixture.MutationNames()).Order(StringComparer.Ordinal).ToList();
+        var expected = BaseState.Concat(SyntheticFixture.MutationNames()).Order(StringComparer.Ordinal).ToList();
         var actual = Directory.GetFiles(Path.Combine(SyntheticFixture.Directory, "expectations"), "*.json")
             .Select(Path.GetFileNameWithoutExtension).Cast<string>().Order(StringComparer.Ordinal).ToList();
 

@@ -5,20 +5,23 @@ namespace Polifemo.Tests.Cli;
 
 public class ExitCodeTests
 {
-    public static TheoryData<Exception, int> Cases => new()
-    {
-        { new OperationCanceledException(), 130 },
-        { new TokenSaveCompatibilityException([new Mismatch("TS_TABLE_MISSING", "nodes")]), 1 },
-        { new FixturePreparationException("PREP_UNKNOWN_COMMIT", "x"), 1 },
-        { new ActiveDatabaseResolutionException("TS_DB_MISSING", "x"), 3 },
-        { new SearchStoreException("ES_AUTH_FAILED", "x"), 3 },
-        { new SearchStoreException("ES_UNREACHABLE", "x"), 3 },
-    };
+    private static readonly (Exception Error, int Expected)[] Mapping =
+    [
+        (new OperationCanceledException(), 130),
+        (new TokenSaveCompatibilityException([new Mismatch("TS_TABLE_MISSING", "nodes")]), 1),
+        (new FixturePreparationException("PREP_UNKNOWN_COMMIT", "x"), 1),
+        (new ActiveDatabaseResolutionException("TS_DB_MISSING", "x"), 3),
+        (new SearchStoreException("ES_AUTH_FAILED", "x"), 3),
+        (new SearchStoreException("ES_UNREACHABLE", "x"), 3),
+    ];
+
+    // Exception is not known to be serializable, so the rows carry an index into Mapping.
+    public static TheoryData<int> Cases => new(Enumerable.Range(0, Mapping.Length));
 
     [Theory]
     [MemberData(nameof(Cases))]
-    public void Maps_exception_to_exit_code(Exception ex, int expected) =>
-        Assert.Equal(expected, ExitCodes.For(ex));
+    public void Maps_exception_to_exit_code(int index) =>
+        Assert.Equal(Mapping[index].Expected, ExitCodes.For(Mapping[index].Error));
 
     [Fact]
     public async Task Failure_writes_error_json_and_no_success()

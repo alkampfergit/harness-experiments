@@ -6,7 +6,7 @@ using Polifemo.Tests.Support;
 
 namespace Polifemo.Tests.Cli;
 
-public class FixtureCommandTests : IDisposable
+public sealed class FixtureCommandTests : IDisposable
 {
     private readonly TestWorkspace _ws = new();
     public void Dispose() => _ws.Dispose();
@@ -24,7 +24,7 @@ public class FixtureCommandTests : IDisposable
         return (exit, text.Length == 0 ? default : JsonDocument.Parse(text).RootElement.Clone(), stderr.ToString());
     }
 
-    private async Task<(string Repo, string Commit)> SourceAsync()
+    private static async Task<(string Repo, string Commit)> SourceAsync()
     {
         var built = await SyntheticFixture.SharedAsync();
         return (built.RepositoryPath, built.Commit);

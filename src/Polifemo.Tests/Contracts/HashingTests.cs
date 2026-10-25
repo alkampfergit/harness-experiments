@@ -7,6 +7,8 @@ namespace Polifemo.Tests.Contracts;
 
 public class HashingTests
 {
+    private static readonly decimal[] Amounts = [1m, 2.5m];
+
     // Expected values were computed independently in Python from contracts/identities-and-hashes.md.
     private const string Lk = "e522b17ada4a1fbfb6ba3b1f0a72f5947afb16990ceb003e4a14a8699b884bca";
 
@@ -146,7 +148,7 @@ public class HashingTests
     public void Canonical_json_sorts_keys_and_writes_numbers_in_the_invariant_culture()
     {
         Assert.Equal("{\"a\":[1,2.5],\"b\":{\"x\":null,\"y\":true},\"c\":\"s\"}",
-            CanonicalJson.Serialize(new { c = "s", b = new { y = true, x = (string?)null }, a = new[] { 1m, 2.5m } }));
+            CanonicalJson.Serialize(new { c = "s", b = new { y = true, x = (string?)null }, a = Amounts }));
 
         var previous = System.Globalization.CultureInfo.CurrentCulture;
         try

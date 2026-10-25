@@ -6,8 +6,11 @@ using Polifemo.Tests.Support;
 namespace Polifemo.Tests.Contracts;
 
 /// <summary>FR-028: boundaries are written contracts only. Nothing is implemented or abstracted before it is used.</summary>
-public class BoundaryHygieneTests
+public sealed partial class BoundaryHygieneTests
 {
+    [GeneratedRegex("Elastic|Sqlite|Lucene|Pragma|Bm25|Shard|Endpoint", RegexOptions.IgnoreCase)]
+    private static partial Regex ProviderSpecificName();
+
     private static readonly string[] BoundaryNames =
         ["Exporter", "Chunker", "Store", "Embedder", "Retriever", "Fusion", "Reranker", "ContextSelector"];
 
@@ -64,6 +67,6 @@ public class BoundaryHygieneTests
             .SelectMany(t => new[] { t.Name }.Concat(t.GetProperties().Select(p => p.Name)))
             .ToList();
 
-        Assert.DoesNotContain(names, n => Regex.IsMatch(n, "Elastic|Sqlite|Lucene|Pragma|Bm25|Shard|Endpoint", RegexOptions.IgnoreCase));
+        Assert.DoesNotContain(names, n => ProviderSpecificName().IsMatch(n));
     }
 }

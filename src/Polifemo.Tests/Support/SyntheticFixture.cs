@@ -1,10 +1,14 @@
+using System.Text.RegularExpressions;
 using Polifemo.Platform.Fixtures;
 
 namespace Polifemo.Tests.Support;
 
 /// <summary>Builds the committed synthetic fixture into a test workspace and prepares clones of it.</summary>
-public static class SyntheticFixture
+public static partial class SyntheticFixture
 {
+    [GeneratedRegex(@"^Commit:\s*`?([0-9a-f]{40})`?\s*$", RegexOptions.Multiline)]
+    private static partial Regex RecordedCommitLine();
+
     public static string Directory => System.IO.Path.Combine(TestWorkspace.RepoRoot(), "src", "fixtures", "synthetic-csharp");
 
     public static string MutationDir(string name) => System.IO.Path.Combine(Directory, "mutations", name);
@@ -52,7 +56,7 @@ public static class SyntheticFixture
     public static string RecordedCommit()
     {
         var text = System.IO.File.ReadAllText(System.IO.Path.Combine(Directory, "PROVENANCE.md"));
-        var m = System.Text.RegularExpressions.Regex.Match(text, @"^Commit:\s*`?([0-9a-f]{40})`?\s*$", System.Text.RegularExpressions.RegexOptions.Multiline);
+        var m = RecordedCommitLine().Match(text);
         return m.Success ? m.Groups[1].Value : throw new InvalidOperationException("PROVENANCE.md has no 'Commit: <sha>' line.");
     }
 }

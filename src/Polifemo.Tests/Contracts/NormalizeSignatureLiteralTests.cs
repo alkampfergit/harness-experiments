@@ -1,10 +1,14 @@
+using System.Text.RegularExpressions;
 using Polifemo.Contracts.Hashing;
 
 namespace Polifemo.Tests.Contracts;
 
 /// <summary>The expression-body cut must ignore "=>" inside literals and comments, and survive unterminated ones.</summary>
-public class NormalizeSignatureLiteralTests
+public sealed partial class NormalizeSignatureLiteralTests
 {
+    [GeneratedRegex(@"\s+")]
+    private static partial Regex Whitespace();
+
     [Theory]
     [InlineData("T M(char c = '=') => 1", "T M(char c = '=')")]
     [InlineData("T M(char c = '\\'') => 1", "T M(char c = '\\'')")]
@@ -24,5 +28,5 @@ public class NormalizeSignatureLiteralTests
     [InlineData("T M(string s = \"\"\"a => 1")]
     [InlineData("T M() /* a => 1")]
     public void Unterminated_literal_swallows_the_rest_so_nothing_is_cut(string input) =>
-        Assert.Equal(System.Text.RegularExpressions.Regex.Replace(input, @"\s+", " ").Trim(), Normalize.Signature(input));
+        Assert.Equal(Whitespace().Replace(input, " ").Trim(), Normalize.Signature(input));
 }

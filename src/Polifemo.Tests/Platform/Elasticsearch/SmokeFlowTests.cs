@@ -51,7 +51,7 @@ public class SmokeFlowTests
     private static async Task<SmokeReport> RunAsync(Scenario s, string user = "elastic", string password = "pw")
     {
         using var fake = new FakeElasticsearch(s.Handle);
-        return await new SmokeTest().RunAsync(new SmokeOptions(fake.Url, user, password), TestContext.Current.CancellationToken);
+        return await SmokeTest.RunAsync(new SmokeOptions(fake.Url, user, password), TestContext.Current.CancellationToken);
     }
 
     [Fact]

@@ -13,7 +13,7 @@ public class SmokeTestTests
     {
         var url = $"http://127.0.0.1:{FakeElasticsearch.FreePort()}";
         var ex = await Assert.ThrowsAsync<SearchStoreException>(() =>
-            new SmokeTest().RunAsync(new SmokeOptions(url, "elastic", Secret), ct: TestContext.Current.CancellationToken));
+            SmokeTest.RunAsync(new SmokeOptions(url, "elastic", Secret), ct: TestContext.Current.CancellationToken));
         Assert.Equal("ES_UNREACHABLE", ex.Code);
         Assert.DoesNotContain(Secret, ex.ToString());
     }
@@ -23,7 +23,7 @@ public class SmokeTestTests
     {
         using var fake = new FakeElasticsearch(_ => (401, "{\"error\":\"unauthorized\"}"));
         var ex = await Assert.ThrowsAsync<SearchStoreException>(() =>
-            new SmokeTest().RunAsync(new SmokeOptions(fake.Url, "elastic", Secret), ct: TestContext.Current.CancellationToken));
+            SmokeTest.RunAsync(new SmokeOptions(fake.Url, "elastic", Secret), ct: TestContext.Current.CancellationToken));
 
         Assert.Equal("ES_AUTH_FAILED", ex.Code);
         Assert.Contains(fake.Url, ex.Message);
@@ -39,7 +39,7 @@ public class SmokeTestTests
     {
         using var fake = new FakeElasticsearch(_ => (200, $"{{\"version\":{{\"number\":\"{version}\"}}}}"));
         var ex = await Assert.ThrowsAsync<SearchStoreException>(() =>
-            new SmokeTest().RunAsync(new SmokeOptions(fake.Url, "elastic", Secret), ct: TestContext.Current.CancellationToken));
+            SmokeTest.RunAsync(new SmokeOptions(fake.Url, "elastic", Secret), ct: TestContext.Current.CancellationToken));
 
         Assert.Equal("ES_VERSION_UNSUPPORTED", ex.Code);
         Assert.Contains(version, ex.Message);
@@ -52,7 +52,7 @@ public class SmokeTestTests
             ? (200, "{\"license\":{\"type\":\"trial\"}}")
             : (200, $"{{\"version\":{{\"number\":\"{PlatformPins.Elasticsearch}\"}}}}"));
 
-        var report = await new SmokeTest().RunAsync(new SmokeOptions(fake.Url, "elastic", Secret), ct: TestContext.Current.CancellationToken);
+        var report = await SmokeTest.RunAsync(new SmokeOptions(fake.Url, "elastic", Secret), ct: TestContext.Current.CancellationToken);
 
         Assert.False(report.Ok);
         Assert.Contains(report.Checks, c => c.Name == "license" && !c.Ok);
@@ -74,7 +74,7 @@ public class SmokeTestTests
         if (string.IsNullOrEmpty(url)) { Assert.Skip("ELASTICSEARCH_URL is not set."); return; }
         var options = SmokeOptions.FromEnvironment(url, null);
 
-        var report = await new SmokeTest().RunAsync(options, ct: TestContext.Current.CancellationToken);
+        var report = await SmokeTest.RunAsync(options, ct: TestContext.Current.CancellationToken);
 
         Assert.True(report.Ok, string.Join("; ", report.Checks.Select(c => $"{c.Name}={c.Ok} {c.Detail}")));
         Assert.Equal(PlatformPins.Elasticsearch, report.ServerVersion);
@@ -99,7 +99,7 @@ public class SmokeTestTests
         }
 
         var ex = await Assert.ThrowsAsync<SearchStoreException>(() =>
-            new SmokeTest().RunAsync(new SmokeOptions(url, "elastic", Secret), ct: TestContext.Current.CancellationToken));
+            SmokeTest.RunAsync(new SmokeOptions(url, "elastic", Secret), ct: TestContext.Current.CancellationToken));
 
         Assert.Equal("ES_AUTH_FAILED", ex.Code);
         Assert.DoesNotContain(Secret, ex.ToString());

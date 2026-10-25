@@ -4,7 +4,7 @@ using Polifemo.Tests.Support;
 
 namespace Polifemo.Tests.Platform.TokenSave;
 
-public class ActiveDatabaseResolverTests : IDisposable
+public sealed class ActiveDatabaseResolverTests : IDisposable
 {
     private readonly TestWorkspace _ws = new();
     public void Dispose() => _ws.Dispose();
@@ -93,7 +93,7 @@ public class ActiveDatabaseResolverTests : IDisposable
     }
 }
 
-public class ActiveDatabaseResolverEdgeTests : IDisposable
+public sealed class ActiveDatabaseResolverEdgeTests : IDisposable
 {
     private readonly TestWorkspace _ws = new();
     public void Dispose() => _ws.Dispose();

@@ -5,7 +5,7 @@ using Polifemo.Tests.Support;
 
 namespace Polifemo.Tests.Cli;
 
-public class PlatformCommandTests : IDisposable
+public sealed class PlatformCommandTests : IDisposable
 {
     private readonly TestWorkspace _ws = new();
     public void Dispose() => _ws.Dispose();

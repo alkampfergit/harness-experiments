@@ -7,7 +7,7 @@ namespace Polifemo.Tests.Contracts;
 /// symbols stay and which change, and that untouched symbols keep every value.
 /// </summary>
 [Trait("Category", "Identity")]
-public class IdentityMatrixTests : IDisposable
+public sealed class IdentityMatrixTests : IDisposable
 {
     private readonly TestWorkspace _ws = new();
     public void Dispose() => _ws.Dispose();

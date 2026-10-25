@@ -5,8 +5,11 @@ using Polifemo.Tests.Support;
 
 namespace Polifemo.Tests.Platform.Fixtures;
 
-public class FixtureBuilderTests : IDisposable
+public sealed partial class FixtureBuilderTests : IDisposable
 {
+    [GeneratedRegex(@"public partial class Order")]
+    private static partial Regex PartialOrder();
+
     private readonly TestWorkspace _ws = new();
     public void Dispose() => _ws.Dispose();
 
@@ -84,7 +87,7 @@ public class FixtureBuilderTests : IDisposable
         Assert.Matches(@"public Money Add\(decimal amount\)", all);                 // overloads
         Assert.Matches(@"interface IRepository<T>", all);                           // generics
         Assert.Matches(@"class Cache<TKey>[\s\S]*class Entry<TValue>[\s\S]*class Index<TKey>[\s\S]*class Entry<TValue>", all); // same simple name
-        Assert.Equal(2, Regex.Matches(all, @"public partial class Order").Count);   // partial class
+        Assert.Equal(2, PartialOrder().Count(all));   // partial class
         Assert.Matches(@"ToSlug\(this string value\)", all);                        // extension method
         Assert.Matches(@"interface IOrderService", all);                            // interface
         Assert.Matches(@"services\.AddScoped<IOrderService, OrderService>\(\)", all); // DI registration

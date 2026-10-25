@@ -4,7 +4,7 @@ using Polifemo.Tests.Support;
 
 namespace Polifemo.Tests.Platform.TokenSave;
 
-public class ReadOnlyGuaranteeTests : IDisposable
+public sealed class ReadOnlyGuaranteeTests : IDisposable
 {
     private readonly TestWorkspace _ws = new();
     public void Dispose() => _ws.Dispose();

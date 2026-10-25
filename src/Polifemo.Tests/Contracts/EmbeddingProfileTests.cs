@@ -11,12 +11,12 @@ public class EmbeddingProfileTests
     private static EmbeddingProfile Profile(
         string model = "nomic-embed-text-v1.5", string revision = Sha, string documentPrefix = "search_document: ",
         string queryPrefix = "search_query: ", int maxTokens = 8192, int dimension = 768, bool normalize = true) =>
-        new("local", model, revision, documentPrefix, queryPrefix, "nomic-bert", maxTokens, dimension, "mean", normalize);
+        new(new EmbeddingModelRef("local", model, revision), new EmbeddingPrefixes(documentPrefix, queryPrefix), "nomic-bert", maxTokens, dimension, "mean", normalize);
 
     [Fact]
     public void Profile_id_known_answer()
     {
-        var p = new EmbeddingProfile("local", "nomic-embed-text-v1.5", new string('a', 40), "search_document: ", "search_query: ", "nomic-bert", 8192, 768, "mean", true);
+        var p = new EmbeddingProfile(new EmbeddingModelRef("local", "nomic-embed-text-v1.5", new string('a', 40)), new EmbeddingPrefixes("search_document: ", "search_query: "), "nomic-bert", 8192, 768, "mean", true);
         Assert.Equal("4dce704324ebb2075e9c8fac814a217e8125103d0f7801152a8ec0990db9b209", p.ProfileId);
     }
 
@@ -30,9 +30,9 @@ public class EmbeddingProfileTests
         {
             Profile(model: "other"), Profile(revision: new string('b', 40)), Profile(documentPrefix: "doc: "),
             Profile(queryPrefix: "q: "), Profile(maxTokens: 512), Profile(dimension: 384), Profile(normalize: false),
-            new EmbeddingProfile("remote", "nomic-embed-text-v1.5", Sha, "search_document: ", "search_query: ", "nomic-bert", 8192, 768, "mean", true),
-            new EmbeddingProfile("local", "nomic-embed-text-v1.5", Sha, "search_document: ", "search_query: ", "other", 8192, 768, "mean", true),
-            new EmbeddingProfile("local", "nomic-embed-text-v1.5", Sha, "search_document: ", "search_query: ", "nomic-bert", 8192, 768, "cls", true),
+            new EmbeddingProfile(new EmbeddingModelRef("remote", "nomic-embed-text-v1.5", Sha), new EmbeddingPrefixes("search_document: ", "search_query: "), "nomic-bert", 8192, 768, "mean", true),
+            new EmbeddingProfile(new EmbeddingModelRef("local", "nomic-embed-text-v1.5", Sha), new EmbeddingPrefixes("search_document: ", "search_query: "), "other", 8192, 768, "mean", true),
+            new EmbeddingProfile(new EmbeddingModelRef("local", "nomic-embed-text-v1.5", Sha), new EmbeddingPrefixes("search_document: ", "search_query: "), "nomic-bert", 8192, 768, "cls", true),
         };
         Assert.All(changed, p => Assert.NotEqual(id, p.ProfileId));
     }
@@ -58,7 +58,9 @@ public class EmbeddingProfileTests
     [Fact]
     public void Same_profile_is_the_same_space()
     {
-        EmbeddingProfile.EnsureSameSpace(Profile(), Profile());
+        var exception = Record.Exception(() => EmbeddingProfile.EnsureSameSpace(Profile(), Profile()));
+
+        Assert.Null(exception);
     }
 
     [Fact]

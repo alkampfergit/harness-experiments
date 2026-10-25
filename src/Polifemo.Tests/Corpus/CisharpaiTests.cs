@@ -10,8 +10,11 @@ namespace Polifemo.Tests.Corpus;
 
 [Trait("Category", "Corpus")]
 [Trait("Category", "TokenSave")]
-public class CisharpaiTests(CisharpaiCorpus corpus) : IClassFixture<CisharpaiCorpus>
+public partial class CisharpaiTests(CisharpaiCorpus corpus) : IClassFixture<CisharpaiCorpus>
 {
+    [GeneratedRegex(@"path\s*=\s*(\S+)")]
+    private static partial Regex ModulePath();
+
     private sealed record Curated(string Corpus, string Commit, string TokensaveVersion, List<ExpSymbol> Symbols, List<ExpRelationship> Relationships);
 
     private sealed record Invariants(int BandPercent, Dictionary<string, int> NodeKinds, Dictionary<string, int> EdgeKinds, int Files, int Ambiguous);
@@ -26,7 +29,7 @@ public class CisharpaiTests(CisharpaiCorpus corpus) : IClassFixture<CisharpaiCor
     [Fact]
     public async Task PinnedCommitMatchesProvenance()
     {
-        corpus.RequireAvailable();
+        CisharpaiCorpus.RequireAvailable();
         var p = CisharpaiCorpus.LoadProvenance();
 
         Assert.Matches("^[0-9a-f]{40}$", p.Commit);
@@ -42,7 +45,7 @@ public class CisharpaiTests(CisharpaiCorpus corpus) : IClassFixture<CisharpaiCor
     [Fact]
     public async Task Preparing_and_indexing_leave_the_corpus_untouched()
     {
-        corpus.RequireAvailable();
+        CisharpaiCorpus.RequireAvailable();
 
         // Ignored files may exist (an IDE restoring the projects creates obj/ folders); what matters is that preparing did not change anything.
         Assert.Equal(corpus.StatusBefore, corpus.StatusAfter);
@@ -55,7 +58,7 @@ public class CisharpaiTests(CisharpaiCorpus corpus) : IClassFixture<CisharpaiCor
     public void Only_public_corpora_under_testrepo_are_committed_as_submodules()
     {
         var modules = File.ReadAllText(Path.Combine(CisharpaiCorpus.RepoRoot, ".gitmodules"));
-        var paths = Regex.Matches(modules, @"path\s*=\s*(\S+)").Select(m => m.Groups[1].Value).ToList();
+        var paths = ModulePath().Matches(modules).Select(m => m.Groups[1].Value).ToList();
 
         Assert.NotEmpty(paths);
         Assert.All(paths, path => Assert.StartsWith("testrepo/", path));
@@ -65,7 +68,7 @@ public class CisharpaiTests(CisharpaiCorpus corpus) : IClassFixture<CisharpaiCor
     [Fact]
     public void CuratedSymbolsExtracted()
     {
-        corpus.RequireAvailable();
+        CisharpaiCorpus.RequireAvailable();
         var curated = Read<Curated>("curated.json");
         Assert.InRange(curated.Symbols.Count, 15, 60);
 
@@ -90,7 +93,7 @@ public class CisharpaiTests(CisharpaiCorpus corpus) : IClassFixture<CisharpaiCor
     [Fact]
     public void CuratedRelationships()
     {
-        corpus.RequireAvailable();
+        CisharpaiCorpus.RequireAvailable();
         var curated = Read<Curated>("curated.json");
         Assert.Contains(curated.Relationships, r => r.Status == "resolved");
         Assert.Contains(curated.Relationships, r => r.Status == "unresolved");
@@ -118,7 +121,7 @@ public class CisharpaiTests(CisharpaiCorpus corpus) : IClassFixture<CisharpaiCor
         Assert.True(problems.Count == 0, string.Join("\n", problems));
     }
 
-    private IReadOnlyList<(ExpSymbol Symbol, LogicalKey Key)> Keys()
+    private List<(ExpSymbol Symbol, LogicalKey Key)> Keys()
     {
         var result = new List<(ExpSymbol, LogicalKey)>();
         foreach (var file in corpus.Symbols.GroupBy(s => s.Path))
@@ -134,7 +137,7 @@ public class CisharpaiTests(CisharpaiCorpus corpus) : IClassFixture<CisharpaiCor
     [Fact]
     public void LogicalKeysUnique()
     {
-        corpus.RequireAvailable();
+        CisharpaiCorpus.RequireAvailable();
         var keys = Keys();
 
         Assert.True(keys.Count > 4000, $"expected thousands of symbols, found {keys.Count}");
@@ -145,7 +148,7 @@ public class CisharpaiTests(CisharpaiCorpus corpus) : IClassFixture<CisharpaiCor
     [Fact]
     public void ExtentsWithinFileBounds()
     {
-        corpus.RequireAvailable();
+        CisharpaiCorpus.RequireAvailable();
         var lineCounts = new Dictionary<string, int>();
         var problems = new List<string>();
 
@@ -166,7 +169,7 @@ public class CisharpaiTests(CisharpaiCorpus corpus) : IClassFixture<CisharpaiCor
     [Fact]
     public void CountsWithinBands()
     {
-        corpus.RequireAvailable();
+        CisharpaiCorpus.RequireAvailable();
         var expected = Read<Invariants>("invariants.json");
         var problems = new List<string>();
 
@@ -195,7 +198,7 @@ public class CisharpaiTests(CisharpaiCorpus corpus) : IClassFixture<CisharpaiCor
     [Fact]
     public void SummaryMatchesSnapshot()
     {
-        corpus.RequireAvailable();
+        CisharpaiCorpus.RequireAvailable();
         var keys = Keys();
         var projects = new SortedDictionary<string, ProjectSummary>(StringComparer.Ordinal);
         foreach (var group in keys.GroupBy(k => Project(k.Symbol.Path)))

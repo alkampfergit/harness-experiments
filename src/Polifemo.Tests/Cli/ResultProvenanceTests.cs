@@ -4,7 +4,7 @@ using Polifemo.Tests.Support;
 
 namespace Polifemo.Tests.Cli;
 
-public class ResultProvenanceTests : IDisposable
+public sealed class ResultProvenanceTests : IDisposable
 {
     private readonly TestWorkspace _ws = new();
     public void Dispose() => _ws.Dispose();

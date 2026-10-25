@@ -3,8 +3,10 @@ using Polifemo.Tests.Support;
 
 namespace Polifemo.Tests.Platform.TokenSave;
 
-public class CompatibilityCheckerTests : IDisposable
+public sealed class CompatibilityCheckerTests : IDisposable
 {
+    private static readonly string[] ExpectedBrokenCodes =
+        ["TS_COLUMN_CHANGED", "TS_COLUMN_MISSING", "TS_INDEX_VERSION_MISMATCH", "TS_TABLE_MISSING", "TS_VERSION_MISMATCH"];
     private readonly TestWorkspace _ws = new();
     public void Dispose() => _ws.Dispose();
 
@@ -119,7 +121,7 @@ public class CompatibilityCheckerTests : IDisposable
 
         Assert.False(r.Ok);
         Assert.Equal(
-            new[] { "TS_COLUMN_CHANGED", "TS_COLUMN_MISSING", "TS_INDEX_VERSION_MISMATCH", "TS_TABLE_MISSING", "TS_VERSION_MISMATCH" },
+            ExpectedBrokenCodes,
             Codes(r).Distinct().Order().ToArray());
     }
 
