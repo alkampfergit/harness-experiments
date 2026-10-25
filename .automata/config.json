@@ -8,7 +8,8 @@
     "maxRunsPerTick": 2,
     "prompts": {
       "issueDiscuss": "do-work-issue-discuss.md",
-      "prWork": "do-work-pr-work.md"
+      "prWork": "do-work-pr-work.md",
+      "prOrphan": "do-work-pr-orphan.md"
     }
   },
   "allowedUsers": [
