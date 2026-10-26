@@ -24,7 +24,60 @@ public sealed class ModelAndEnvironmentTests : IDisposable
     {
         var path = ModelArtifactGate.ArtifactPath(_ws.Path, "nomic-ai/nomic-embed-text-v1.5", Revision);
         Directory.CreateDirectory(path);
-        File.WriteAllText(Path.Combine(path, "config.json"), "{}");
+        foreach (var file in new[] { "config.json", "modules.json", "tokenizer.json", "model.safetensors" })
+            File.WriteAllText(Path.Combine(path, file), "{}");
+    }
+
+    private string Snapshot() => ModelArtifactGate.ArtifactPath(_ws.Path, "nomic-ai/nomic-embed-text-v1.5", Revision);
+
+    [Fact]
+    public void A_snapshot_with_only_config_json_is_incomplete()
+    {
+        Directory.CreateDirectory(Snapshot());
+        File.WriteAllText(Path.Combine(Snapshot(), "config.json"), "{}");
+
+        Assert.Equal("MODEL_ARTIFACT_MISSING", Code(new ModelArtifactGate(_ws.Path, [Approval()]), Profile()));
+    }
+
+    [Fact]
+    public void An_empty_weight_file_or_dangling_link_is_incomplete()
+    {
+        Acquire();
+        var weights = Path.Combine(Snapshot(), "model.safetensors");
+        File.Delete(weights);
+        File.CreateSymbolicLink(weights, Path.Combine(_ws.Path, "blobs-missing"));
+
+        Assert.Equal("MODEL_ARTIFACT_MISSING", Code(new ModelArtifactGate(_ws.Path, [Approval()]), Profile()));
+
+        File.Delete(weights);
+        File.WriteAllBytes(weights, []);
+        Assert.Equal("MODEL_ARTIFACT_MISSING", Code(new ModelArtifactGate(_ws.Path, [Approval()]), Profile()));
+    }
+
+    [Fact]
+    public void Cache_links_that_resolve_inside_the_root_pass_and_links_leaving_it_do_not()
+    {
+        Acquire();
+        var weights = Path.Combine(Snapshot(), "model.safetensors");
+        File.Delete(weights);
+        var blob = Path.Combine(_ws.Path, "blob");
+        File.WriteAllText(blob, "w");
+        File.CreateSymbolicLink(weights, blob);
+        new ModelArtifactGate(_ws.Path, [Approval()]).EnsureReady(Profile());
+
+        using var outside = new TestWorkspace();
+        var elsewhere = Path.Combine(outside.Path, "w");
+        File.WriteAllText(elsewhere, "w");
+        File.Delete(weights);
+        File.CreateSymbolicLink(weights, elsewhere);
+        Assert.Equal("MODEL_ARTIFACT_MISSING", Code(new ModelArtifactGate(_ws.Path, [Approval()]), Profile()));
+    }
+
+    [Fact]
+    public void The_manifest_depends_on_the_provider()
+    {
+        Assert.Contains(ModelArtifactGate.DefaultManifest("onnxruntime"), g => g.Contains("onnx/model.onnx"));
+        Assert.Contains(ModelArtifactGate.DefaultManifest("sentence-transformers"), g => g.Contains("modules.json"));
     }
 
     private static string Code(ModelArtifactGate gate, EmbeddingProfile profile) =>

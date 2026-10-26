@@ -53,7 +53,7 @@ public sealed class DiagnosticEvent
             ["exception_type"] = ex.GetType().Name,
         };
         if (ex.InnerException is { } inner) fields["cause_type"] = inner.GetType().Name;
-        if (ex is PolifemoException) fields["detail"] = ex.Message;
+        if (SafeMessage.For(ex) is { } detail) fields["detail"] = detail;
         return Create(ex is PolifemoException p ? p.Code : "UNEXPECTED", component, fields);
     }
 

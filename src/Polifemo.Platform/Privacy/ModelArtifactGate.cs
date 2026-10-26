@@ -8,7 +8,8 @@ namespace Polifemo.Platform.Privacy;
 /// model needs remote code, which runs arbitrary code from the model repository.
 /// </summary>
 public sealed record ModelApproval(
-    string Model, string Revision, string License, bool UsesRemoteCode, bool RemoteCodeReviewed, string ReviewedOn);
+    string Model, string Revision, string License, bool UsesRemoteCode, bool RemoteCodeReviewed, string ReviewedOn,
+    IReadOnlyList<IReadOnlyList<string>>? Manifest = null);
 
 /// <summary>
 /// Model acquisition is a separate, explicit step (docs/privacy.md). At run time this gate only checks that the
@@ -17,6 +18,15 @@ public sealed record ModelApproval(
 public sealed class ModelArtifactGate(string artifactRoot, IReadOnlyList<ModelApproval> approvals)
 {
     private static readonly string[] LocalProviders = ["sentence-transformers", "onnxruntime"];
+
+    /// <summary>
+    /// What a snapshot must contain, per provider: every group needs at least one of its alternative files. An approval
+    /// may carry its own manifest for a model whose layout differs.
+    /// </summary>
+    public static IReadOnlyList<IReadOnlyList<string>> DefaultManifest(string provider) =>
+        provider.Equals("onnxruntime", StringComparison.OrdinalIgnoreCase)
+            ? [["config.json"], ["tokenizer.json"], ["onnx/model.onnx", "model.onnx"]]
+            : [["config.json"], ["modules.json"], ["tokenizer.json", "tokenizer_config.json"], ["model.safetensors", "pytorch_model.bin"]];
 
     /// <summary>Hugging Face cache layout: <c>models--org--name/snapshots/&lt;revision&gt;</c>.</summary>
     public static string ArtifactPath(string root, string model, string revision) =>
@@ -37,9 +47,28 @@ public sealed class ModelArtifactGate(string artifactRoot, IReadOnlyList<ModelAp
                 $"Model '{profile.Model}' uses remote code that has not been reviewed.");
 
         var path = ArtifactPath(artifactRoot, profile.Model, profile.Revision);
-        if (!Directory.Exists(path) || !Directory.EnumerateFileSystemEntries(path).Any())
+        if (!IsComplete(path, approval.Manifest ?? DefaultManifest(profile.Provider)))
             throw new PrivacyPolicyException("MODEL_ARTIFACT_MISSING",
                 $"Pinned artifacts of '{profile.Model}' at revision {profile.Revision} are not in the model directory. "
                 + "Run the separate model acquisition step described in docs/privacy.md; runs never download models.");
+    }
+
+    /// <summary>Each group has a file that resolves (through cache links) to a non-empty regular file under the artifact root.</summary>
+    private bool IsComplete(string snapshot, IReadOnlyList<IReadOnlyList<string>> manifest) =>
+        Directory.Exists(snapshot) && manifest.All(group => group.Any(file => ResolvesToFile(Path.Combine(snapshot, file))));
+
+    private bool ResolvesToFile(string path)
+    {
+        try
+        {
+            var info = new FileInfo(path);
+            var target = info.ResolveLinkTarget(returnFinalTarget: true) ?? info;
+            var root = Path.GetFullPath(artifactRoot) + Path.DirectorySeparatorChar;
+            return target is FileInfo { Exists: true, Length: > 0 } && Path.GetFullPath(target.FullName).StartsWith(root, StringComparison.Ordinal);
+        }
+        catch (IOException)
+        {
+            return false; // a link loop or an unreadable entry is not a usable artifact
+        }
     }
 }

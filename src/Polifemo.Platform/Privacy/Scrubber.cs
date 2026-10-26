@@ -9,7 +9,7 @@ public sealed record SecretRule(string Id, Regex Pattern);
 
 public static partial class SecretRules
 {
-    [GeneratedRegex(@"-----BEGIN [A-Z ]*PRIVATE KEY-----")]
+    [GeneratedRegex(@"-----BEGIN [A-Z ]*PRIVATE KEY-----(?:[\s\S]*?-----END [A-Z ]*PRIVATE KEY-----|[\s\S]*)")]
     private static partial Regex PrivateKeyBlock();
 
     [GeneratedRegex(@"\bAKIA[0-9A-Z]{16}\b")]

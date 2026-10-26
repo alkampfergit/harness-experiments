@@ -26,7 +26,7 @@ public static class CliOutput
         }
         // Typed messages are written without payload and are scrubbed again; other messages can echo input and are dropped.
         var diagnostic = DiagnosticEvent.FromException("cli", ex);
-        var message = ex is PolifemoException ? Scrubber.Scrub(ex.Message) : $"Unexpected {ex.GetType().Name}.";
+        var message = SafeMessage.For(ex) ?? $"Unexpected {ex.GetType().Name}.";
         stderr.WriteLine($"{diagnostic.Code}: {message}");
         WriteResult(stdout, new { ok = false, error = new { code = diagnostic.Code, message } });
     }

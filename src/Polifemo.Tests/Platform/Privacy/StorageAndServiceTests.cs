@@ -51,6 +51,58 @@ public sealed class StorageAndServiceTests : IDisposable
     }
 
     [Fact]
+    public void A_symlinked_index_or_component_is_refused_before_anything_is_created_or_chmodded()
+    {
+        if (OperatingSystem.IsWindows()) return;
+        using var outside = new TestWorkspace();
+        Directory.CreateSymbolicLink(Path.Combine(_ws.Path, ".index"), outside.Path);
+
+        var ex = Assert.Throws<PrivacyPolicyException>(() =>
+            ProtectedStorage.EnsurePrivateDirectory(_ws.Path, Path.Combine(_ws.Path, ".index", "cache")));
+
+        Assert.Equal("STORAGE_SYMLINK", ex.Code);
+        Assert.Empty(Directory.EnumerateFileSystemEntries(outside.Path));
+
+        File.Delete(Path.Combine(_ws.Path, ".index"));
+        Directory.CreateDirectory(Path.Combine(_ws.Path, ".index"));
+        Directory.CreateSymbolicLink(Path.Combine(_ws.Path, ".index", "cache"), outside.Path);
+        Assert.Equal("STORAGE_SYMLINK", Assert.Throws<PrivacyPolicyException>(() =>
+            ProtectedStorage.EnsurePrivateDirectory(_ws.Path, Path.Combine(_ws.Path, ".index", "cache", "v"))).Code);
+        Assert.Empty(Directory.EnumerateFileSystemEntries(outside.Path));
+    }
+
+    [Fact]
+    public async Task Writing_through_a_symlinked_file_is_refused()
+    {
+        if (OperatingSystem.IsWindows()) return;
+        var target = _ws.Combine("target.txt");
+        File.WriteAllText(target, "keep");
+        var link = _ws.Combine("link.txt");
+        File.CreateSymbolicLink(link, target);
+
+        var ex = await Assert.ThrowsAsync<PrivacyPolicyException>(
+            () => ProtectedStorage.WritePrivateFileAsync(link, "new", TestContext.Current.CancellationToken));
+
+        Assert.Equal("STORAGE_SYMLINK", ex.Code);
+        Assert.Equal("keep", File.ReadAllText(target));
+    }
+
+    [Fact]
+    public async Task An_existing_wide_file_is_made_private_and_overwritten()
+    {
+        if (OperatingSystem.IsWindows()) return;
+        var file = _ws.Combine("old.json");
+        File.WriteAllText(file, "old content that is longer");
+        File.SetUnixFileMode(file, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.GroupRead | UnixFileMode.OtherRead);
+
+        await ProtectedStorage.WritePrivateFileAsync(file, "new", TestContext.Current.CancellationToken);
+
+        ProtectedStorage.VerifyPrivate(file);
+        Assert.Equal(UnixFileMode.UserRead | UnixFileMode.UserWrite, File.GetUnixFileMode(file));
+        Assert.Equal("new", File.ReadAllText(file));
+    }
+
+    [Fact]
     public void Group_or_world_access_is_detected()
     {
         if (OperatingSystem.IsWindows()) return;

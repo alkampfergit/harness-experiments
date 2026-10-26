@@ -14,7 +14,7 @@ processing is out of scope and needs a separate, authorized change to AGENTS.md;
 |---|---|
 | Embedding, reranking, query transmission, store and telemetry destinations must be loopback or an approved single-label local service name (`localhost`, `elasticsearch`). Names are never resolved, so checks work offline. | `LocalEndpointPolicy` |
 | Each capability is validated independently, for profile defaults and for caller overrides. An override pointing outside the boundary is rejected (`POLICY_EXTERNAL_ENDPOINT`), not ignored. The message names the capability and a fingerprint, never the URL. | `ProcessingPolicy.Resolve` |
-| Every `HttpClient` that carries sample-derived data is built by `LocalOnlyHttp.CreateClient`: the destination is checked per request before anything is sent, redirects are not followed, system proxies are not used. The Elasticsearch smoke test uses it. | `LocalOnlyHandler` |
+| Every `HttpClient` that carries sample-derived data is built by `LocalOnlyHttp.CreateClient`: the destination is checked per request before anything is sent, redirects are not followed, system proxies are not used. The public factory takes no handler (handler injection is internal, test-only), so the hardened transport is the only one exposed. The Elasticsearch smoke test uses it. | `LocalOnlyHandler` |
 | Child processes always run with `HF_HUB_OFFLINE=1`, `TRANSFORMERS_OFFLINE=1`, `HF_HUB_DISABLE_TELEMETRY=1`, `DO_NOT_TRACK=1`, `DOTNET_CLI_TELEMETRY_OPTOUT=1`, `OTEL_SDK_DISABLED=true`. A caller cannot override them. | `PrivacyEnvironment`, `ProcessRunner` |
 | TokenSave usage reporting must be off: `report_savings: false` in `.tokensave/config.json`. `platform check` reports `TS_UPLOAD_ENABLED` (failure) or `TS_UPLOAD_SETTING_ABSENT` (warning). | `TokenSaveUploadGuard`, `CompatibilityChecker` |
 | OpenTelemetry exporter endpoints (`OTEL_EXPORTER_OTLP_*ENDPOINT`) must pass the local policy. | `TelemetryPolicy` |
@@ -37,7 +37,7 @@ Acquisition is a separate, explicit step; runs never download models.
 3. Download once, with network access, into `.index/models/` in the Hugging Face cache layout
    (`models--org--name/snapshots/<revision>`). No sample content is sent.
 4. Runs call `ModelArtifactGate.EnsureReady`, which fails with `MODEL_NOT_APPROVED`,
-   `MODEL_REMOTE_CODE_UNREVIEWED`, `MODEL_PROVIDER_NOT_LOCAL` or `MODEL_ARTIFACT_MISSING` and never fetches anything.
+   `MODEL_REMOTE_CODE_UNREVIEWED`, `MODEL_PROVIDER_NOT_LOCAL` or `MODEL_ARTIFACT_MISSING` and never fetches anything. An artifact is present only when a provider-specific manifest (`ModelArtifactGate.DefaultManifest`, overridable per approval) is satisfied: each required file must resolve, through cache links, to a non-empty file under the model root; dangling links, empty files and a bare `config.json` fail.
 
 ## 2. Authorized scope and snapshots (F02-02)
 
@@ -91,7 +91,7 @@ body size and batch size (`RequestLimits`).
 ### Storage (`ProtectedStorage`, `DataStoreCatalog`)
 
 Graphs, vectors, checkpoints, caches and logs are source-derived and confidential. They live only under the
-git-ignored `.index/`, owner-only (`0700` directories, `0600` files; on Windows the profile ACLs apply). The
+git-ignored `.index/`, owner-only (`0700` directories, `0600` files; on Windows the profile ACLs apply). Symlinks and reparse points on the path, `.index` included, are refused (`STORAGE_SYMLINK`); an existing file is set to `0600` on the opened handle before it is truncated and written. The
 catalog below is mirrored by `DataStoreCatalog`; a test fails if a store has no policy or is missing here.
 
 | Store | Location | Protection |
@@ -116,3 +116,7 @@ catalog below is mirrored by `DataStoreCatalog`; a test fails if a store has no 
 | Encryption at rest | Relies on the host disk | Disk or volume encryption, key management |
 | Authorization state | In-memory `ScopeRegistry` | Durable, audited, bound to the caller's identity |
 | Offline proof | Environment settings | Network egress controls |
+
+## Safe failure messages
+
+`SafeMessage.For` is the single policy for `DiagnosticEvent` and `CliOutput`: codes, exception types and identifiers are kept; messages of non-Polifemo exceptions are dropped; `GIT_FAILED` and `PREP_INDEX_FAILED` (which wrapped subprocess stderr) get a fixed text and their messages now hold only the exit code. Scrubbing redacts a private key from its BEGIN header through the END marker, or to the end of the message when unterminated.

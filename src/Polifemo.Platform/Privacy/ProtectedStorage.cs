@@ -22,6 +22,7 @@ public static class ProtectedStorage
         if (full != indexRoot && !full.StartsWith(indexRoot + Path.DirectorySeparatorChar, StringComparison.Ordinal))
             throw new PrivacyPolicyException("STORAGE_OUTSIDE_INDEX", "Derived data may only be stored under .index/.");
 
+        RejectLinks(indexRoot, full);
         Directory.CreateDirectory(indexRoot);
         if (!OperatingSystem.IsWindows()) File.SetUnixFileMode(indexRoot, PrivateDirectory);
         var current = indexRoot;
@@ -34,17 +35,44 @@ public static class ProtectedStorage
         return full;
     }
 
+    /// <summary>
+    /// Symlinks and reparse points are refused rather than followed: <c>GetFullPath</c> does not resolve them, so
+    /// one could redirect derived data (or a permission change) outside <c>.index/</c>. Every existing component
+    /// from <c>.index</c> down to <paramref name="full"/> is checked; components that do not exist yet are created by us.
+    /// </summary>
+    private static void RejectLinks(string indexRoot, string full)
+    {
+        var current = indexRoot;
+        ThrowIfLink(current);
+        foreach (var segment in Path.GetRelativePath(indexRoot, full).Split(Path.DirectorySeparatorChar, StringSplitOptions.RemoveEmptyEntries))
+        {
+            current = Path.Combine(current, segment);
+            ThrowIfLink(current);
+        }
+    }
+
+    private static void ThrowIfLink(string path)
+    {
+        FileSystemInfo info = Directory.Exists(path) ? new DirectoryInfo(path) : new FileInfo(path);
+        if (info.Exists && (info.LinkTarget is not null || info.Attributes.HasFlag(FileAttributes.ReparsePoint)))
+            throw new PrivacyPolicyException("STORAGE_SYMLINK", $"'{path}' is a symbolic link or reparse point; derived data is never stored through links.");
+    }
+
     public static async Task WritePrivateFileAsync(string path, string content, CancellationToken ct = default)
     {
+        ThrowIfLink(path);
         if (!OperatingSystem.IsWindows())
         {
-            // Created with the final mode, so there is no moment at which the file is group- or world-readable.
+            // New files get the final mode at creation. An existing file keeps its old mode, so the mode is set on the
+            // opened handle and the content is truncated only afterwards: old, wider permissions never apply to new data.
             await using var stream = new FileStream(path, new FileStreamOptions
             {
-                Mode = FileMode.Create,
+                Mode = FileMode.OpenOrCreate,
                 Access = FileAccess.Write,
                 UnixCreateMode = PrivateFile,
             });
+            File.SetUnixFileMode(stream.SafeFileHandle, PrivateFile);
+            stream.SetLength(0);
             await using var writer = new StreamWriter(stream);
             await writer.WriteAsync(content.AsMemory(), ct);
             return;

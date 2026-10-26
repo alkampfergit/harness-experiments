@@ -69,7 +69,9 @@ public static class SmokeTest
     {
         // The store holds sample-derived data: refuse a non-local URL before any request, and again on every request.
         LocalEndpointPolicy.Default.Validate(ProcessingCapability.Store, options.Url, "Elasticsearch URL");
-        using var http = LocalOnlyHttp.CreateClient(LocalEndpointPolicy.Default, ProcessingCapability.Store, innerHandler);
+        using var http = innerHandler is null
+            ? LocalOnlyHttp.CreateClient(LocalEndpointPolicy.Default, ProcessingCapability.Store)
+            : LocalOnlyHttp.CreateClient(LocalEndpointPolicy.Default, ProcessingCapability.Store, innerHandler);
         http.Timeout = TimeSpan.FromSeconds(30);
         if (!string.IsNullOrEmpty(options.Username) && !string.IsNullOrEmpty(options.Password))
             http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(

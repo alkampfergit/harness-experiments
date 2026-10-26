@@ -176,8 +176,10 @@ public sealed class EgressTests
     [Fact]
     public void The_default_client_follows_no_redirects_and_uses_no_proxy()
     {
-        using var http = LocalOnlyHttp.CreateClient(LocalEndpointPolicy.Default, ProcessingCapability.Store);
+        var publicFactory = typeof(LocalOnlyHttp).GetMethods().Where(m => m.IsPublic && m.Name == nameof(LocalOnlyHttp.CreateClient));
 
+        Assert.All(publicFactory, m => Assert.DoesNotContain(m.GetParameters(), p => typeof(HttpMessageHandler).IsAssignableFrom(p.ParameterType)));
+        using var http = LocalOnlyHttp.CreateClient(LocalEndpointPolicy.Default, ProcessingCapability.Store);
         Assert.NotNull(http);
     }
 }

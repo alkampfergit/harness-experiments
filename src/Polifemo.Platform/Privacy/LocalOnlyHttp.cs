@@ -24,9 +24,10 @@ public static class LocalOnlyHttp
     /// Redirects are not followed (a local service could redirect outward) and system proxies are not used
     /// (an environment proxy would carry the payload off the machine).
     /// </summary>
-    public static HttpClient CreateClient(LocalEndpointPolicy policy, ProcessingCapability capability, HttpMessageHandler? inner = null)
-    {
-        inner ??= new HttpClientHandler { AllowAutoRedirect = false, UseProxy = false };
-        return new HttpClient(new LocalOnlyHandler(policy, capability, inner));
-    }
+    public static HttpClient CreateClient(LocalEndpointPolicy policy, ProcessingCapability capability) =>
+        new(new LocalOnlyHandler(policy, capability, new HttpClientHandler { AllowAutoRedirect = false, UseProxy = false }));
+
+    /// <summary>Test seam: the handler stands in for the network, below the local-only check. Not part of the public surface.</summary>
+    internal static HttpClient CreateClient(LocalEndpointPolicy policy, ProcessingCapability capability, HttpMessageHandler inner) =>
+        new(new LocalOnlyHandler(policy, capability, inner));
 }
