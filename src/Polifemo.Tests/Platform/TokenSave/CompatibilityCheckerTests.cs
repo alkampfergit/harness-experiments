@@ -31,6 +31,30 @@ public sealed class CompatibilityCheckerTests : IDisposable
         Assert.Equal(Path.Combine(".tokensave", "tokensave.db"), r.DatabasePath);
     }
 
+    [Theory]
+    [InlineData("""{"report_savings": true}""", "TS_UPLOAD_ENABLED")]
+    [InlineData("""{"report_savings": false}""", null)]
+    public async Task Tokensave_upload_setting_is_checked(string config, string? code)
+    {
+        var worktree = new SyntheticTokenSave().Build(_ws.Path);
+        File.WriteAllText(Path.Combine(worktree, ".tokensave", "config.json"), config);
+
+        var r = await Checker().CheckAsync(worktree, PlatformPins.TokenSave, TestContext.Current.CancellationToken);
+
+        Assert.Equal(code is null, r.Ok);
+        Assert.Equal(code is null ? [] : [code], Codes(r));
+        Assert.DoesNotContain(r.Warnings, w => w.Code == "TS_UPLOAD_SETTING_ABSENT");
+    }
+
+    [Fact]
+    public async Task An_unstated_upload_setting_is_a_warning_not_a_failure()
+    {
+        var r = await Check(new SyntheticTokenSave());
+
+        Assert.True(r.Ok);
+        Assert.Contains(r.Warnings, w => w.Code == "TS_UPLOAD_SETTING_ABSENT");
+    }
+
     [Fact]
     public async Task Wrong_binary_version_is_TS_VERSION_MISMATCH()
     {

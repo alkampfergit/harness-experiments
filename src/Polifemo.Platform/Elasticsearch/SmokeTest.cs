@@ -3,6 +3,7 @@ using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
 using Polifemo.Contracts.Errors;
+using Polifemo.Platform.Privacy;
 
 namespace Polifemo.Platform.Elasticsearch;
 
@@ -61,9 +62,15 @@ public static class SmokeTest
         ("5", "echo elderberry jam", [0.7f, 0.7f, 0f, 0f]),
     ];
 
-    public static async Task<SmokeReport> RunAsync(SmokeOptions options, CancellationToken ct = default)
+    public static Task<SmokeReport> RunAsync(SmokeOptions options, CancellationToken ct = default) => RunAsync(options, null, ct);
+
+    /// <summary>Test seam: the handler stands in for the network, below the local-only check.</summary>
+    internal static async Task<SmokeReport> RunAsync(SmokeOptions options, HttpMessageHandler? innerHandler, CancellationToken ct)
     {
-        using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
+        // The store holds sample-derived data: refuse a non-local URL before any request, and again on every request.
+        LocalEndpointPolicy.Default.Validate(ProcessingCapability.Store, options.Url, "Elasticsearch URL");
+        using var http = LocalOnlyHttp.CreateClient(LocalEndpointPolicy.Default, ProcessingCapability.Store, innerHandler);
+        http.Timeout = TimeSpan.FromSeconds(30);
         if (!string.IsNullOrEmpty(options.Username) && !string.IsNullOrEmpty(options.Password))
             http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
                 "Basic", Convert.ToBase64String(Encoding.UTF8.GetBytes($"{options.Username}:{options.Password}")));
