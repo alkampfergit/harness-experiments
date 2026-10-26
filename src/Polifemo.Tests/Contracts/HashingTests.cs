@@ -145,6 +145,14 @@ public class HashingTests
         Assert.Equal(expected, Normalize.Signature(input));
 
     [Fact]
+    public void Canonical_json_keeps_distinct_numbers_beyond_decimal_precision_distinct()
+    {
+        var small = System.Text.Json.Nodes.JsonNode.Parse("{\"n\":1e-30}");
+        var smaller = System.Text.Json.Nodes.JsonNode.Parse("{\"n\":2e-30}");
+        Assert.NotEqual(CanonicalJson.Serialize(small), CanonicalJson.Serialize(smaller));
+    }
+
+    [Fact]
     public void Canonical_json_sorts_keys_and_writes_numbers_in_the_invariant_culture()
     {
         Assert.Equal("{\"a\":[1,2.5],\"b\":{\"x\":null,\"y\":true},\"c\":\"s\"}",

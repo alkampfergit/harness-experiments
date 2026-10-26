@@ -1,10 +1,9 @@
-using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 
 namespace Polifemo.Contracts.Hashing;
 
-/// <summary>Keys sorted ordinally, no insignificant whitespace, numbers in the invariant culture, UTF-8.</summary>
+/// <summary>Keys sorted ordinally, no insignificant whitespace, numbers written losslessly by the JSON writer, UTF-8.</summary>
 public static class CanonicalJson
 {
     private static readonly JsonSerializerOptions WebOptions = new(JsonSerializerDefaults.Web);
@@ -38,9 +37,6 @@ public static class CanonicalJson
                 writer.WriteStartArray();
                 foreach (var child in array) Write(writer, child);
                 writer.WriteEndArray();
-                break;
-            case JsonValue v when v.TryGetValue<decimal>(out var d) && v.GetValueKind() == JsonValueKind.Number:
-                writer.WriteRawValue(d.ToString(CultureInfo.InvariantCulture));
                 break;
             default:
                 node.WriteTo(writer);

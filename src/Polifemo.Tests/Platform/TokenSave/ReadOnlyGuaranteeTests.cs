@@ -57,6 +57,17 @@ public sealed class ReadOnlyGuaranteeTests : IDisposable
     }
 
     [Fact]
+    public void A_database_path_containing_a_semicolon_opens()
+    {
+        var dir = Path.Combine(_ws.Path, "repo;copy");
+        new SyntheticTokenSave().Build(dir);
+        var db = Path.Combine(dir, ".tokensave", "tokensave.db");
+
+        using var reader = TokenSaveReader.OpenReadOnly(db);
+        Assert.Null(Record.Exception(reader.BeginSnapshot));
+    }
+
+    [Fact]
     public async Task Concurrent_modification_during_the_check_is_TS_DB_MODIFIED()
     {
         new SyntheticTokenSave().Build(_ws.Path);

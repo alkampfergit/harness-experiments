@@ -48,6 +48,31 @@ public sealed class PathGuardTests : IDisposable
     }
 
     [Fact]
+    public async Task Build_refuses_an_output_that_resolves_outside_the_index_folder()
+    {
+        var index = Path.Combine(Path.GetTempPath(), "polifemo-guard-out", ".index");
+        var victim = Path.Combine(Path.GetTempPath(), "polifemo-guard-out", "victim");
+        Directory.CreateDirectory(index);
+        Directory.CreateDirectory(victim);
+        var marker = Path.Combine(victim, "keep.txt");
+        File.WriteAllText(marker, "keep");
+        var alias = Path.Combine(index, "alias");
+        if (Directory.Exists(alias)) Directory.Delete(alias);
+        Directory.CreateSymbolicLink(alias, Path.GetDirectoryName(victim)!);
+        try
+        {
+            var ex = await Assert.ThrowsAsync<FixturePreparationException>(() =>
+                FixtureBuilder.BuildAsync(_ws.Path, Path.Combine(alias, "victim"), TestContext.Current.CancellationToken));
+            Assert.Equal("FIX_BAD_OUT", ex.Code);
+            Assert.True(File.Exists(marker));
+        }
+        finally
+        {
+            Directory.Delete(alias);
+        }
+    }
+
+    [Fact]
     public async Task Mutate_refuses_a_worktree_outside_an_index_folder()
     {
         var ex = await Assert.ThrowsAsync<FixturePreparationException>(() =>

@@ -25,7 +25,12 @@ internal sealed class TokenSaveReader : IDisposable
 
     public static TokenSaveReader OpenReadOnly(string databasePath)
     {
-        var connection = new SqliteConnection($"Data Source={databasePath};Mode=ReadOnly;Pooling=False");
+        var connection = new SqliteConnection(new SqliteConnectionStringBuilder
+        {
+            DataSource = databasePath,
+            Mode = SqliteOpenMode.ReadOnly,
+            Pooling = false,
+        }.ToString());
         connection.Open();
         return new TokenSaveReader(connection);
     }

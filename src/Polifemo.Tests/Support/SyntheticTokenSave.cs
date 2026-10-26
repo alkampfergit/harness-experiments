@@ -55,7 +55,7 @@ public sealed class SyntheticTokenSave
 
         var dbPath = Path.Combine(ts, DbFile == "" ? "tokensave.db" : DbFile);
         Directory.CreateDirectory(Path.GetDirectoryName(dbPath)!);
-        using (var conn = new SqliteConnection($"Data Source={dbPath};Pooling=False"))
+        using (var conn = new SqliteConnection(new SqliteConnectionStringBuilder { DataSource = dbPath, Pooling = false }.ToString()))
         {
             conn.Open();
             if (WalMode) Exec(conn, "PRAGMA journal_mode=WAL");

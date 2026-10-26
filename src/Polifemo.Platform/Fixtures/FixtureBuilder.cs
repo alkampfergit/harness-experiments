@@ -24,7 +24,11 @@ public static class FixtureBuilder
         if (!UnderIndexFolder(outDir))
             throw new FixturePreparationException("FIX_BAD_OUT", $"Output '{outDir}' must be inside a '.index' folder (not the '.index' root itself).");
 
-        if (Overlaps(fixtureDir, ResolveLinks(outDir)))
+        var resolvedOut = ResolveLinks(outDir);
+        if (!UnderIndexFolder(resolvedOut))
+            throw new FixturePreparationException("FIX_BAD_OUT", $"Output '{outDir}' resolves to '{resolvedOut}', which is outside a '.index' folder.");
+
+        if (Overlaps(fixtureDir, resolvedOut))
             throw new FixturePreparationException("FIX_BAD_OUT", $"Output '{outDir}' and fixture '{fixtureDir}' must be disjoint folders.");
 
         if (Directory.Exists(outDir)) Directory.Delete(outDir, recursive: true);
