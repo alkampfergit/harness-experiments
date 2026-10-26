@@ -176,6 +176,7 @@ if command -v claude >/dev/null 2>&1; then
     echo "Registering agent-plugins-base marketplace for Claude Code..."
     claude plugin marketplace add "$AGENT_PLUGINS_MARKETPLACE" </dev/null || true
     claude plugin install github-alk@agent-plugins-base </dev/null || true
+    claude plugin install speckit-alk@agent-plugins-base </dev/null || true
 else
     echo "claude CLI not available, skipping Claude Code marketplace setup."
 fi
@@ -184,6 +185,7 @@ if command -v codex >/dev/null 2>&1; then
     echo "Registering agent-plugins-base marketplace for Codex..."
     codex plugin marketplace add "$AGENT_PLUGINS_MARKETPLACE" </dev/null || true
     codex plugin add github-alk@agent-plugins-base </dev/null || true
+    codex plugin add speckit-alk@agent-plugins-base </dev/null || true
 else
     echo "codex CLI not available, skipping Codex marketplace setup."
 fi
