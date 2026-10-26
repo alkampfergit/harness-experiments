@@ -23,7 +23,9 @@ processing is out of scope and needs a separate, authorized change to AGENTS.md;
 The settings above reduce accidental egress; they are **not a network control**. A run that must prove it is
 offline needs an egress-disabled network (for example a container with `--network none` plus the Compose
 network for Elasticsearch only, or host firewall rules that drop non-loopback traffic). That run was not
-recorded (see platform-compatibility.md, section 5).
+recorded (see platform-compatibility.md, section 5). Constitution Principle I requires network-level enforcement, so
+this is a known deviation until the egress-disabled run (task T017 in `specs/002-privacy-and-scope/tasks.md`) is recorded and
+before any real corpus is processed.
 
 ### Model acquisition
 

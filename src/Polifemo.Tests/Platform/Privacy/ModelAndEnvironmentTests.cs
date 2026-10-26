@@ -131,4 +131,18 @@ public sealed class ModelAndEnvironmentTests : IDisposable
             Assert.True(!hits.Any(), $"{Path.GetFileName(file)} matches secret rule(s): {string.Join(", ", hits)}");
         }
     }
+
+    [Fact]
+    public void Payload_carrying_http_clients_are_created_only_by_LocalOnlyHttp()
+    {
+        var platform = Path.Combine(TestWorkspace.RepoRoot(), "src", "Polifemo.Platform");
+        var offenders = Directory.EnumerateFiles(platform, "*.cs", SearchOption.AllDirectories)
+            .Where(f => !f.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}")
+                && !f.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}")
+                && Path.GetFileName(f) != "LocalOnlyHttp.cs"
+                && File.ReadAllText(f).Contains("new HttpClient(", StringComparison.Ordinal))
+            .Select(Path.GetFileName);
+
+        Assert.Empty(offenders);
+    }
 }
