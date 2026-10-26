@@ -21,7 +21,7 @@ public static partial class SecretRules
     [GeneratedRegex(@"\bbearer\s+[A-Za-z0-9._~+/=-]{16,}", RegexOptions.IgnoreCase)]
     private static partial Regex BearerToken();
 
-    [GeneratedRegex(@"\b(?:password|passwd|pwd|secret|api[_-]?key|token)\b[""']?\s*[:=]\s*[""'][^""'\s]{4,}[""']", RegexOptions.IgnoreCase)]
+    [GeneratedRegex(@"\b(?:password|passwd|pwd|secret|api[_-]?key|token)\b[""']?\s*[:=]\s*(?:""(?:[^""\\]|\\.){4,}""|'(?:[^'\\]|\\.){4,}')", RegexOptions.IgnoreCase)]
     private static partial Regex QuotedAssignment();
 
     [GeneratedRegex(@"\bpassword=[^;\s""']{4,}", RegexOptions.IgnoreCase)]

@@ -78,7 +78,7 @@ public sealed partial class SourceInputPolicy
     public InputDecision Evaluate(string path, ReadOnlySpan<byte> bytes)
     {
         var normalized = Polifemo.Contracts.Hashing.Normalize.Path(path);
-        var pathHits = _pathRules.Where(r => r.Pattern.IsMatch(normalized)).ToList();
+        var pathHits = _pathRules.Where(r => r.Action != InputAction.Include && r.Pattern.IsMatch(normalized)).ToList();
         if (pathHits.Count > 0)
             return Decide(normalized, pathHits.Select(r => (r.Id, r.Action)).ToList(), null);
 

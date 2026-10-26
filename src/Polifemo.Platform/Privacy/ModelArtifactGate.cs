@@ -61,14 +61,28 @@ public sealed class ModelArtifactGate(string artifactRoot, IReadOnlyList<ModelAp
     {
         try
         {
-            var info = new FileInfo(path);
-            var target = info.ResolveLinkTarget(returnFinalTarget: true) ?? info;
-            var root = Path.GetFullPath(artifactRoot) + Path.DirectorySeparatorChar;
-            return target is FileInfo { Exists: true, Length: > 0 } && Path.GetFullPath(target.FullName).StartsWith(root, StringComparison.Ordinal);
+            var target = ResolveReal(path, 0);
+            var root = Path.TrimEndingDirectorySeparator(ResolveReal(artifactRoot, 0)) + Path.DirectorySeparatorChar;
+            return target.StartsWith(root, StringComparison.Ordinal) && new FileInfo(target) is { Exists: true, Length: > 0 };
         }
         catch (IOException)
         {
             return false; // a link loop or an unreadable entry is not a usable artifact
         }
+    }
+
+    /// <summary>The path with every symbolic link in every component (ancestors included) replaced by its target.</summary>
+    private static string ResolveReal(string path, int depth)
+    {
+        if (depth > 40) throw new IOException("Too many levels of symbolic links.");
+        var full = Path.GetFullPath(path);
+        var current = Path.GetPathRoot(full)!;
+        foreach (var segment in full[current.Length..].Split(Path.DirectorySeparatorChar, StringSplitOptions.RemoveEmptyEntries))
+        {
+            current = Path.Combine(current, segment);
+            var hop = new FileInfo(current).ResolveLinkTarget(returnFinalTarget: false);
+            if (hop is not null) current = ResolveReal(hop.FullName, depth + 1);
+        }
+        return current;
     }
 }

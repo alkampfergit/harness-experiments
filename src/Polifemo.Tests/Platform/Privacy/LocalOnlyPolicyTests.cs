@@ -148,6 +148,20 @@ public sealed class EgressTests
     }
 
     [Theory]
+    [MemberData(nameof(Paths))]
+    public void A_synchronous_hosted_request_is_refused_before_anything_is_sent(ProcessingCapability capability, string url)
+    {
+        var inner = new Recorder();
+        using var http = LocalOnlyHttp.CreateClient(LocalEndpointPolicy.Default, capability, inner);
+        using var request = new HttpRequestMessage(HttpMethod.Post, url) { Content = new StringContent("source text") };
+
+        var ex = Assert.Throws<PrivacyPolicyException>(() => http.Send(request, TestContext.Current.CancellationToken));
+
+        Assert.Equal("POLICY_EXTERNAL_ENDPOINT", ex.Code);
+        Assert.Empty(inner.Sent);
+    }
+
+    [Theory]
     [InlineData(ProcessingCapability.Store, "http://elasticsearch:9200/_bulk")]
     [InlineData(ProcessingCapability.Embedding, "http://127.0.0.1:8000/embed")]
     [InlineData(ProcessingCapability.Reranking, "http://localhost:8001/rerank")]

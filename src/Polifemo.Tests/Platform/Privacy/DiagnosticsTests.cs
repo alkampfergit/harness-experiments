@@ -78,6 +78,7 @@ public sealed class DiagnosticsTests
     [Theory]
     [InlineData("GIT_FAILED")]
     [InlineData("PREP_INDEX_FAILED")]
+    [InlineData("MUT_INVALID")]
     public async Task Subprocess_failures_never_carry_their_message_to_diagnostics_or_cli_output(string code)
     {
         const string Leak = "fatal: bad object class SecretService { string Query = \"salary report\"; }";
@@ -113,6 +114,13 @@ public sealed class DiagnosticsTests
     [InlineData("before -----BEGIN RSA PRIVATE KEY-----\nMIIabc\ndef\n-----END RSA PRIVATE KEY----- after", "before [redacted:private-key-block] after")]
     [InlineData("log: -----BEGIN PRIVATE KEY-----\nMIIabc\nnever terminated", "log: [redacted:private-key-block]")]
     public void A_private_key_is_redacted_through_its_end_marker_or_to_the_end_of_the_message(string input, string expected) =>
+        Assert.Equal(expected, Scrubber.Scrub(input));
+
+    [Theory]
+    [InlineData("password = \"correct'horse\"", "[redacted:secret-assignment]")]
+    [InlineData("secret: 'it\\'s a long value' tail", "[redacted:secret-assignment] tail")]
+    [InlineData("token = \"two words here\"", "[redacted:secret-assignment]")]
+    public void A_quoted_secret_is_redacted_to_its_closing_delimiter(string input, string expected) =>
         Assert.Equal(expected, Scrubber.Scrub(input));
 
     [Fact]

@@ -42,7 +42,7 @@ public sealed class StorageAndServiceTests : IDisposable
         var dir = ProtectedStorage.EnsurePrivateDirectory(_ws.Path, Path.Combine(_ws.Path, ".index", "cache", "vectors"));
         var file = Path.Combine(dir, "v.json");
 
-        await ProtectedStorage.WritePrivateFileAsync(file, "{}", TestContext.Current.CancellationToken);
+        await ProtectedStorage.WritePrivateFileAsync(TestWorkspace.RepoRoot(), file, "{}", TestContext.Current.CancellationToken);
 
         ProtectedStorage.VerifyPrivate(dir);
         ProtectedStorage.VerifyPrivate(file);
@@ -81,10 +81,32 @@ public sealed class StorageAndServiceTests : IDisposable
         File.CreateSymbolicLink(link, target);
 
         var ex = await Assert.ThrowsAsync<PrivacyPolicyException>(
-            () => ProtectedStorage.WritePrivateFileAsync(link, "new", TestContext.Current.CancellationToken));
+            () => ProtectedStorage.WritePrivateFileAsync(TestWorkspace.RepoRoot(), link, "new", TestContext.Current.CancellationToken));
 
         Assert.Equal("STORAGE_SYMLINK", ex.Code);
         Assert.Equal("keep", File.ReadAllText(target));
+    }
+
+    [Fact]
+    public async Task Writing_below_a_symlinked_parent_or_outside_the_index_is_refused()
+    {
+        if (OperatingSystem.IsWindows()) return;
+        using var outside = new TestWorkspace();
+        var linked = _ws.Combine("cache");
+        Directory.CreateSymbolicLink(linked, outside.Path);
+        var victim = Path.Combine(outside.Path, "v.json");
+        File.WriteAllText(victim, "keep");
+        File.SetUnixFileMode(victim, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.OtherRead);
+
+        var viaLink = await Assert.ThrowsAsync<PrivacyPolicyException>(
+            () => ProtectedStorage.WritePrivateFileAsync(TestWorkspace.RepoRoot(), Path.Combine(linked, "v.json"), "new", TestContext.Current.CancellationToken));
+        var elsewhere = await Assert.ThrowsAsync<PrivacyPolicyException>(
+            () => ProtectedStorage.WritePrivateFileAsync(TestWorkspace.RepoRoot(), Path.Combine(Path.GetTempPath(), "polifemo-outside-index.json"), "new", TestContext.Current.CancellationToken));
+
+        Assert.Equal("STORAGE_SYMLINK", viaLink.Code);
+        Assert.Equal("STORAGE_OUTSIDE_INDEX", elsewhere.Code);
+        Assert.Equal("keep", File.ReadAllText(victim));
+        Assert.Equal(UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.OtherRead, File.GetUnixFileMode(victim));
     }
 
     [Fact]
@@ -95,7 +117,7 @@ public sealed class StorageAndServiceTests : IDisposable
         File.WriteAllText(file, "old content that is longer");
         File.SetUnixFileMode(file, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.GroupRead | UnixFileMode.OtherRead);
 
-        await ProtectedStorage.WritePrivateFileAsync(file, "new", TestContext.Current.CancellationToken);
+        await ProtectedStorage.WritePrivateFileAsync(TestWorkspace.RepoRoot(), file, "new", TestContext.Current.CancellationToken);
 
         ProtectedStorage.VerifyPrivate(file);
         Assert.Equal(UnixFileMode.UserRead | UnixFileMode.UserWrite, File.GetUnixFileMode(file));

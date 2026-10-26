@@ -12,9 +12,21 @@ public sealed class LocalOnlyHandler(LocalEndpointPolicy policy, ProcessingCapab
 {
     protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
     {
+        Validate(request);
+        return base.SendAsync(request, cancellationToken);
+    }
+
+    /// <summary><see cref="HttpClient.Send(HttpRequestMessage)"/> does not pass through <see cref="SendAsync"/>, so it is checked the same way.</summary>
+    protected override HttpResponseMessage Send(HttpRequestMessage request, CancellationToken cancellationToken)
+    {
+        Validate(request);
+        return base.Send(request, cancellationToken);
+    }
+
+    private void Validate(HttpRequestMessage request)
+    {
         var uri = request.RequestUri ?? throw new PrivacyPolicyException("POLICY_ENDPOINT_INVALID", $"A {capability} request has no absolute URL.");
         policy.Validate(capability, uri, "request");
-        return base.SendAsync(request, cancellationToken);
     }
 }
 

@@ -6,8 +6,11 @@ using Polifemo.Platform.Privacy;
 namespace Polifemo.Tests.Platform.Privacy;
 
 /// <summary>F02-03: excluded and secret-bearing inputs follow an explicit, reported action before indexing or inference.</summary>
-public sealed class SourceInputPolicyTests
+public sealed partial class SourceInputPolicyTests
 {
+    [System.Text.RegularExpressions.GeneratedRegex(@"\.cs$")]
+    private static partial System.Text.RegularExpressions.Regex CSharpFile();
+
     // Built at run time so this file does not look like a leaked credential to a scanner.
     private static readonly string AwsKey = "AKIA" + new string('A', 8) + "1234567" + "8";
     private static readonly string GitHubToken = "ghp_" + new string('x', 36);
@@ -120,6 +123,28 @@ public sealed class SourceInputPolicyTests
     public void A_rule_set_to_include_does_not_fire() =>
         Assert.Equal(InputAction.Include,
             Evaluate(new SourceInputPolicy([], new Dictionary<string, InputAction> { [SecretRules.AwsKey] = InputAction.Include }), "a.cs", AwsKey).Action);
+
+    [Fact]
+    public void An_include_path_rule_does_not_bypass_secret_screening()
+    {
+        var policy = new SourceInputPolicy(
+            [new PathRule("sources", CSharpFile(), InputAction.Include)],
+            new Dictionary<string, InputAction> { [SecretRules.AwsKey] = InputAction.Exclude });
+
+        Assert.Equal(InputAction.Exclude, Evaluate(policy, "a.cs", $"k={AwsKey}").Action);
+        Assert.Equal(InputAction.Include, Evaluate(policy, "a.cs", "class A {}").Action);
+    }
+
+    [Fact]
+    public void A_quoted_secret_with_an_apostrophe_or_spaces_is_redacted_whole()
+    {
+        var decision = Evaluate(SourceInputPolicy.Default, "a.cs", "var x = 1; password = \"correct'horse staple\"; var y = 2;");
+
+        Assert.Equal(InputAction.Redact, decision.Action);
+        Assert.DoesNotContain("horse", decision.Content);
+        Assert.DoesNotContain("staple", decision.Content);
+        Assert.Contains("var y = 2;", decision.Content);
+    }
 
     [Fact]
     public void An_included_decision_does_not_throw()

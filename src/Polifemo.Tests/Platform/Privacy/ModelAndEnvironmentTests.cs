@@ -74,6 +74,26 @@ public sealed class ModelAndEnvironmentTests : IDisposable
     }
 
     [Fact]
+    public void A_snapshot_directory_linked_outside_the_root_is_incomplete()
+    {
+        Acquire();
+        using var outside = new TestWorkspace();
+        foreach (var file in Directory.GetFiles(Snapshot())) File.Copy(file, Path.Combine(outside.Path, Path.GetFileName(file)));
+        Directory.Delete(Snapshot(), recursive: true);
+        Directory.CreateSymbolicLink(Snapshot(), outside.Path);
+
+        Assert.Equal("MODEL_ARTIFACT_MISSING", Code(new ModelArtifactGate(_ws.Path, [Approval()]), Profile()));
+    }
+
+    [Fact]
+    public void A_root_with_a_trailing_separator_still_accepts_a_complete_model()
+    {
+        Acquire();
+
+        Assert.Null(Record.Exception(() => new ModelArtifactGate(_ws.Path + Path.DirectorySeparatorChar, [Approval()]).EnsureReady(Profile())));
+    }
+
+    [Fact]
     public void The_manifest_depends_on_the_provider()
     {
         Assert.Contains(ModelArtifactGate.DefaultManifest("onnxruntime"), g => g.Contains("onnx/model.onnx"));
@@ -187,7 +207,7 @@ public sealed class ModelAndEnvironmentTests : IDisposable
         foreach (var file in files)
         {
             var hits = SecretRules.All.Where(r => r.Pattern.IsMatch(File.ReadAllText(file))).Select(r => r.Id);
-            Assert.True(!hits.Any(), $"{Path.GetFileName(file)} matches secret rule(s): {string.Join(", ", hits)}");
+            Assert.False(hits.Any(), $"{Path.GetFileName(file)} matches secret rule(s): {string.Join(", ", hits)}");
         }
     }
 

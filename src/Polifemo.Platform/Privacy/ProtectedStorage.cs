@@ -17,12 +17,7 @@ public static class ProtectedStorage
     /// <summary>Creates the directory (and missing parents under <c>.index/</c>) owner-only. Anything outside <c>.index/</c> is refused.</summary>
     public static string EnsurePrivateDirectory(string repositoryRoot, string path)
     {
-        var indexRoot = Path.GetFullPath(Path.Combine(repositoryRoot, ".index"));
-        var full = Path.GetFullPath(path);
-        if (full != indexRoot && !full.StartsWith(indexRoot + Path.DirectorySeparatorChar, StringComparison.Ordinal))
-            throw new PrivacyPolicyException("STORAGE_OUTSIDE_INDEX", "Derived data may only be stored under .index/.");
-
-        RejectLinks(indexRoot, full);
+        var (indexRoot, full) = ResolveInsideIndex(repositoryRoot, path);
         Directory.CreateDirectory(indexRoot);
         if (!OperatingSystem.IsWindows()) File.SetUnixFileMode(indexRoot, PrivateDirectory);
         var current = indexRoot;
@@ -33,6 +28,18 @@ public static class ProtectedStorage
             if (!OperatingSystem.IsWindows()) File.SetUnixFileMode(current, PrivateDirectory);
         }
         return full;
+    }
+
+    /// <summary>The write boundary: <paramref name="path"/> must lie under <c>.index/</c> and no component of it may be a link.</summary>
+    private static (string IndexRoot, string Full) ResolveInsideIndex(string repositoryRoot, string path)
+    {
+        var indexRoot = Path.GetFullPath(Path.Combine(repositoryRoot, ".index"));
+        var full = Path.GetFullPath(path);
+        if (full != indexRoot && !full.StartsWith(indexRoot + Path.DirectorySeparatorChar, StringComparison.Ordinal))
+            throw new PrivacyPolicyException("STORAGE_OUTSIDE_INDEX", "Derived data may only be stored under .index/.");
+
+        RejectLinks(indexRoot, full);
+        return (indexRoot, full);
     }
 
     /// <summary>
@@ -58,9 +65,9 @@ public static class ProtectedStorage
             throw new PrivacyPolicyException("STORAGE_SYMLINK", $"'{path}' is a symbolic link or reparse point; derived data is never stored through links.");
     }
 
-    public static async Task WritePrivateFileAsync(string path, string content, CancellationToken ct = default)
+    public static async Task WritePrivateFileAsync(string repositoryRoot, string path, string content, CancellationToken ct = default)
     {
-        ThrowIfLink(path);
+        path = ResolveInsideIndex(repositoryRoot, path).Full;
         if (!OperatingSystem.IsWindows())
         {
             // New files get the final mode at creation. An existing file keeps its old mode, so the mode is set on the
