@@ -91,7 +91,8 @@ the configured localhost store), fixture preparation and every test.
 TokenSave uploads: `tokensave disable-upload-counter` runs in `postcreate.sh`, and
 `report_savings` is set to `false` in the project's `.tokensave/config.json`. Constitution I asks
 for network controls and not only counters, so an egress-disabled run would be the actual proof;
-the maintainer dropped that run, so it is not recorded.
+the maintainer dropped that run, so it is not recorded. The endpoint, model and upload rules that the code
+enforces are in `docs/local-only.md`.
 
 ## 6. TokenSave languages
 

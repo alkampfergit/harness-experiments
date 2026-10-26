@@ -3,6 +3,7 @@ using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
 using Polifemo.Contracts.Errors;
+using Polifemo.Platform.Privacy;
 
 namespace Polifemo.Platform.Elasticsearch;
 
@@ -63,7 +64,7 @@ public static class SmokeTest
 
     public static async Task<SmokeReport> RunAsync(SmokeOptions options, CancellationToken ct = default)
     {
-        using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
+        using var http = LocalOnlyHttp.CreateClient(LocalOnlyPolicy.FromEnvironment(), EndpointKind.Store);
         if (!string.IsNullOrEmpty(options.Username) && !string.IsNullOrEmpty(options.Password))
             http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
                 "Basic", Convert.ToBase64String(Encoding.UTF8.GetBytes($"{options.Username}:{options.Password}")));

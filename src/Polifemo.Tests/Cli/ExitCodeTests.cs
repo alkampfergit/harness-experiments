@@ -13,6 +13,8 @@ public class ExitCodeTests
         (new ActiveDatabaseResolutionException("TS_DB_MISSING", "x"), 3),
         (new SearchStoreException("ES_AUTH_FAILED", "x"), 3),
         (new SearchStoreException("ES_UNREACHABLE", "x"), 3),
+        (new LocalOnlyPolicyException("LOCAL_ONLY_EXTERNAL_ENDPOINT", "x"), 1),
+        (new ModelArtifactException("MODEL_ARTIFACT_MISSING", "x"), 1),
     ];
 
     // Exception is not known to be serializable, so the rows carry an index into Mapping.

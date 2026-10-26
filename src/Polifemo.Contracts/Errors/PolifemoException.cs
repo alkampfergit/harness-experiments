@@ -33,3 +33,11 @@ public sealed class EmbeddingProfileMismatchException(string expected, string ac
     public string Expected { get; } = expected;
     public string Actual { get; } = actual;
 }
+
+/// <summary>A configuration or request that would send data to a non-local service, or enable a hosted provider.</summary>
+public sealed class LocalOnlyPolicyException(string code, string message)
+    : PolifemoException(code, message);
+
+/// <summary>A model, its pinned artifacts or its review record is missing or unacceptable. Never fixed by downloading.</summary>
+public sealed class ModelArtifactException(string code, string message)
+    : PolifemoException(code, message);

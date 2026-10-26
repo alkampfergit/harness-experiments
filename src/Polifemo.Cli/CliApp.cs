@@ -15,6 +15,7 @@ public static class CliApp
         var root = new RootCommand("Polifemo: platform verification and fixture tooling.");
         root.Subcommands.Add(PlatformCommands.Create(stdout, stderr, binaryVersion));
         root.Subcommands.Add(FixtureCommands.Create(stdout, stderr));
+        root.Subcommands.Add(PrivacyCommands.Create(stdout, stderr));
 
         var parse = root.Parse(args);
         if (parse.Errors.Count > 0)
