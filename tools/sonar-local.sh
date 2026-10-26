@@ -21,7 +21,7 @@
 set -euo pipefail
 
 SONAR_ANALYZER_VERSION="10.35.0.4138"
-DEFAULT_RULES="S1066,S107,S1075,S108,S1144,S1192,S127,S2583,S2699,S3776,S6966,CA1068,CA1816,CA1822,CA1859,CA1861,CA1869,CA1875,SYSLIB1045,xUnit1045"
+DEFAULT_RULES="S1066,S107,S1075,S108,S1144,S1192,S127,S2583,S2699,S3776,S3928,S6966,CA1068,CA2208,CA1816,CA1822,CA1859,CA1861,CA1869,CA1875,SYSLIB1045,xUnit1045"
 RULES="${SONAR_LOCAL_RULES:-$DEFAULT_RULES}"
 KEEP=0
 [[ "${1:-}" == "--keep" ]] && KEEP=1
@@ -66,6 +66,7 @@ dotnet_diagnostic.S1144.severity = warning
 dotnet_diagnostic.S127.severity = warning
 dotnet_diagnostic.S2583.severity = warning
 dotnet_diagnostic.S2699.severity = warning
+dotnet_diagnostic.S3928.severity = warning
 dotnet_diagnostic.S6966.severity = warning
 CFG
 

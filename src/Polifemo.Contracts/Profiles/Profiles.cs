@@ -45,10 +45,10 @@ public sealed partial record EmbeddingProfile
         string tokenizer, int maxTokens, int dimension, string pooling, bool normalize)
     {
         var (provider, model, revision) = modelRef;
-        if (string.IsNullOrWhiteSpace(provider)) throw new ArgumentException("Provider is required.", nameof(provider));
-        if (string.IsNullOrWhiteSpace(model)) throw new ArgumentException("Model is required.", nameof(model));
+        if (string.IsNullOrWhiteSpace(provider)) throw new ArgumentException("Provider is required.", nameof(modelRef));
+        if (string.IsNullOrWhiteSpace(model)) throw new ArgumentException("Model is required.", nameof(modelRef));
         if (!CommitSha().IsMatch(revision))
-            throw new ArgumentException($"Revision '{revision}' is not an immutable commit SHA (a branch or tag such as 'main' can move).", nameof(revision));
+            throw new ArgumentException($"Revision '{revision}' is not an immutable commit SHA (a branch or tag such as 'main' can move).", nameof(modelRef));
         if (maxTokens <= 0) throw new ArgumentOutOfRangeException(nameof(maxTokens), "MaxTokens must be positive.");
         if (dimension <= 0) throw new ArgumentOutOfRangeException(nameof(dimension), "Dimension must be positive.");
 
