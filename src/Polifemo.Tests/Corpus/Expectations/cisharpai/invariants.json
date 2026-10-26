@@ -1,0 +1,31 @@
+{
+  "bandPercent": 2,
+  "nodeKinds": {
+    "annotation_usage": 2014,
+    "class": 484,
+    "const": 4,
+    "constructor": 59,
+    "csharp_property": 895,
+    "enum": 15,
+    "enum_variant": 54,
+    "field": 510,
+    "file": 600,
+    "inner_class": 16,
+    "interface": 32,
+    "method": 2762,
+    "module": 1674,
+    "namespace": 444,
+    "record": 73,
+    "struct": 1,
+    "use": 1041
+  },
+  "edgeKinds": {
+    "annotates": 2014,
+    "calls": 4418,
+    "extends": 10,
+    "implements": 98,
+    "uses": 1678
+  },
+  "files": 602,
+  "ambiguous": 645
+}

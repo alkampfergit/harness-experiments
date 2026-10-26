@@ -1,0 +1,12 @@
+{
+  "corpora": [
+    {
+      "name": "cisharpai",
+      "url": "https://github.com/alkampfergit/cisharpai",
+      "commit": "8103c0d822211a60bb31815a28d354578be6bd6c",
+      "license": "MIT (Directory.Build.props only)",
+      "licenseEvidence": "Directory.Build.props declares PackageLicenseExpression MIT. The repository has no LICENSE file at the pinned commit; ask the owner to add one and move the pin to the first commit that has it.",
+      "approvedOn": "2026-10-24"
+    }
+  ]
+}

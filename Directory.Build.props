@@ -1,0 +1,8 @@
+<Project>
+
+  <!-- Zero warnings (AGENTS.md, Conventions). A warning is fixed at its cause, not suppressed. -->
+  <PropertyGroup>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  </PropertyGroup>
+
+</Project>

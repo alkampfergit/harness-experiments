@@ -1,0 +1,250 @@
+{
+  "corpus": "cisharpai",
+  "commit": "8103c0d822211a60bb31815a28d354578be6bd6c",
+  "tokensaveVersion": "7.16.0",
+  "symbols": [
+    {
+      "path": "src/Cisharpai.Rag/Chunking/RegexSentenceSplitter.cs",
+      "qualifiedName": "RegexSentenceSplitter",
+      "kind": "class",
+      "signature": "public sealed partial class RegexSentenceSplitter : ISentenceSplitter",
+      "startLine": 10,
+      "endLine": 25,
+      "note": "partial class whose other part is produced by the regex source generator"
+    },
+    {
+      "path": "src/Cisharpai.Rag/Chunking/RegexSentenceSplitter.cs",
+      "qualifiedName": "RegexSentenceSplitter::@GeneratedRegex",
+      "kind": "annotation_usage",
+      "signature": "GeneratedRegex(@\"(?<=[.!?])\\s+\", RegexOptions.Compiled)",
+      "startLine": 12,
+      "endLine": 12
+    },
+    {
+      "path": "src/Cisharpai.Rag/Chunking/RegexSentenceSplitter.cs",
+      "qualifiedName": "RegexSentenceSplitter::SentenceBoundary",
+      "kind": "method",
+      "signature": "[GeneratedRegex(@\"(?<=[.!?])\\s+\", RegexOptions.Compiled)] private static partial Regex SentenceBoundary()",
+      "startLine": 12,
+      "endLine": 13,
+      "note": "partial method; its extent starts at the attribute"
+    },
+    {
+      "path": "src/Cisharpai.Rag/Chunking/RegexSentenceSplitter.cs",
+      "qualifiedName": "RegexSentenceSplitter::Split",
+      "kind": "method",
+      "signature": "public IReadOnlyList<string> Split(string text)",
+      "startLine": 15,
+      "endLine": 24
+    },
+    {
+      "path": "src/Cisharpai.Rag/Chunking/ISentenceSplitter.cs",
+      "qualifiedName": "ISentenceSplitter",
+      "kind": "interface",
+      "signature": "public interface ISentenceSplitter",
+      "startLine": 8,
+      "endLine": 11
+    },
+    {
+      "path": "src/Cisharpai/Features/FeatureCollection.cs",
+      "qualifiedName": "FeatureCollection",
+      "kind": "class",
+      "signature": "public sealed class FeatureCollection : IFeatureCollection",
+      "startLine": 9,
+      "endLine": 31
+    },
+    {
+      "path": "src/Cisharpai/Features/FeatureCollection.cs",
+      "qualifiedName": "FeatureCollection::_features",
+      "kind": "field",
+      "signature": "private readonly ConcurrentDictionary<Type, object> _features = new();",
+      "startLine": 11,
+      "endLine": 11
+    },
+    {
+      "path": "src/Cisharpai/Features/FeatureCollection.cs",
+      "qualifiedName": "FeatureCollection::Get",
+      "kind": "method",
+      "signature": "public T? Get<T>() where T : class",
+      "startLine": 14,
+      "endLine": 17,
+      "note": "generic method; the type parameter is not part of the qualified name"
+    },
+    {
+      "path": "src/Cisharpai/Features/FeatureCollection.cs",
+      "qualifiedName": "FeatureCollection::Set",
+      "kind": "method",
+      "signature": "public void Set<T>(T instance) where T : class",
+      "startLine": 20,
+      "endLine": 24
+    },
+    {
+      "path": "src/Cisharpai/Features/FeatureCollection.cs",
+      "qualifiedName": "FeatureCollection::GetEnumerator",
+      "kind": "method",
+      "signature": "public IEnumerator<KeyValuePair<Type, object>> GetEnumerator() => _features.GetEnumerator()",
+      "startLine": 27,
+      "endLine": 27,
+      "note": "first of a same-name pair (ordinal 0)"
+    },
+    {
+      "path": "src/Cisharpai/Features/FeatureCollection.cs",
+      "qualifiedName": "FeatureCollection::GetEnumerator",
+      "kind": "method",
+      "signature": "IEnumerator IEnumerable.GetEnumerator() => GetEnumerator()",
+      "startLine": 30,
+      "endLine": 30,
+      "note": "explicit interface implementation, second of the pair (ordinal 1)"
+    },
+    {
+      "path": "src/Cisharpai/Features/IFeatureCollection.cs",
+      "qualifiedName": "IFeatureCollection",
+      "kind": "interface",
+      "signature": "public interface IFeatureCollection : IEnumerable<KeyValuePair<Type, object>>",
+      "startLine": 7,
+      "endLine": 18
+    },
+    {
+      "path": "src/Cisharpai.Rag/Models/TextChunk.cs",
+      "qualifiedName": "TextChunk",
+      "kind": "record",
+      "signature": "public sealed record TextChunk( string DocumentId, int Index, int StartOffset, int EndOffset, string Text, IReadOnlyDictionary<string, object?> Metadata)",
+      "startLine": 21,
+      "endLine": 56,
+      "note": "record with a primary constructor"
+    },
+    {
+      "path": "src/Cisharpai.Rag/Models/TextChunk.cs",
+      "qualifiedName": "TextChunk::TextChunk",
+      "kind": "constructor",
+      "signature": "public TextChunk(string DocumentId, int Index, int StartOffset, int EndOffset, string Text) : this(DocumentId, Index, StartOffset, EndOffset, Text, EmptyMetadata)",
+      "startLine": 32,
+      "endLine": 35,
+      "note": "additional constructor chained to the primary one"
+    },
+    {
+      "path": "src/Cisharpai.Rag.Tokenizers/Tokenization/TokenCounterExtensions.cs",
+      "qualifiedName": "TokenCounterExtensions",
+      "kind": "class",
+      "signature": "public static class TokenCounterExtensions",
+      "startLine": 7,
+      "endLine": 44
+    },
+    {
+      "path": "src/Cisharpai.Rag.Tokenizers/Tokenization/TokenCounterExtensions.cs",
+      "qualifiedName": "TokenCounterExtensions::ToTokenEstimator",
+      "kind": "method",
+      "signature": "public static Func<string, int> ToTokenEstimator(this TiktokenCounter counter)",
+      "startLine": 15,
+      "endLine": 19,
+      "note": "extension method"
+    },
+    {
+      "path": "src/Cisharpai/HttpClientBuilderExtensions.cs",
+      "qualifiedName": "HttpClientBuilderExtensions::AddCisharpaiResilienceHandler",
+      "kind": "method",
+      "signature": "public static IHttpClientBuilder AddCisharpaiResilienceHandler(this IHttpClientBuilder builder)",
+      "startLine": 9,
+      "endLine": 41,
+      "note": "extension method"
+    },
+    {
+      "path": "src/Cisharpai/LlmHttpClient.cs",
+      "qualifiedName": "LlmHttpClient::PostStreamAsync",
+      "kind": "method",
+      "startLine": 183,
+      "endLine": 281,
+      "note": "generic async iterator with a cancellation token"
+    },
+    {
+      "path": "src/Cisharpai.Cohere/CohereServiceCollectionExtensions.cs",
+      "qualifiedName": "CohereServiceCollectionExtensions::AddCohereChatClient",
+      "kind": "method",
+      "signature": "public static IHttpClientBuilder AddCohereChatClient( this IServiceCollection services, Action<CohereClientOptions> configure)",
+      "startLine": 67,
+      "endLine": 93,
+      "note": "overload pair, verified by hand: ordinal 0 has no key parameter"
+    },
+    {
+      "path": "src/Cisharpai.Cohere/CohereServiceCollectionExtensions.cs",
+      "qualifiedName": "CohereServiceCollectionExtensions::AddCohereChatClient",
+      "kind": "method",
+      "signature": "public static IHttpClientBuilder AddCohereChatClient( this IServiceCollection services, string key, Action<CohereClientOptions> configure)",
+      "startLine": 95,
+      "endLine": 124,
+      "note": "ordinal 1 takes a key"
+    }
+  ],
+  "relationships": [
+    {
+      "from": "src/Cisharpai.Rag/Chunking/RegexSentenceSplitter.cs#RegexSentenceSplitter",
+      "to": "src/Cisharpai.Rag/Chunking/ISentenceSplitter.cs#ISentenceSplitter",
+      "kind": "implements",
+      "status": "resolved"
+    },
+    {
+      "from": "src/Cisharpai/Features/FeatureCollection.cs#FeatureCollection",
+      "to": "src/Cisharpai/Features/IFeatureCollection.cs#IFeatureCollection",
+      "kind": "implements",
+      "status": "resolved"
+    },
+    {
+      "from": "src/Cisharpai.Rag/Chunking/RegexSentenceSplitter.cs#RegexSentenceSplitter::Split",
+      "to": "src/Cisharpai.Rag/Chunking/RegexSentenceSplitter.cs#RegexSentenceSplitter::SentenceBoundary",
+      "kind": "calls",
+      "status": "resolved"
+    },
+    {
+      "from": "src/Cisharpai.Rag/Chunking/RegexSentenceSplitter.cs#RegexSentenceSplitter::@GeneratedRegex",
+      "to": "src/Cisharpai.Rag/Chunking/RegexSentenceSplitter.cs#RegexSentenceSplitter::SentenceBoundary",
+      "kind": "annotates",
+      "status": "resolved"
+    },
+    {
+      "from": "src/Cisharpai/Features/FeatureCollection.cs#FeatureCollection::GetEnumerator#1",
+      "to": "src/Cisharpai/Features/FeatureCollection.cs#FeatureCollection::GetEnumerator#0",
+      "kind": "calls",
+      "status": "resolved",
+      "note": "the explicit implementation calls the public one"
+    },
+    {
+      "from": "src/Cisharpai.Rag/QueryTransformation/StepBackTransformer.cs#StepBackTransformer",
+      "to": "src/Cisharpai.Rag/QueryTransformation/QueryTransformerBase.cs#QueryTransformerBase",
+      "kind": "extends",
+      "status": "resolved"
+    },
+    {
+      "from": "src/Cisharpai.Anthropic/AnthropicServiceCollectionExtensions.cs#AnthropicServiceCollectionExtensions::AddAnthropicClient#0",
+      "to": "builder.AddCisharpaiResilienceHandler",
+      "kind": "calls",
+      "status": "unresolved",
+      "note": "call of an extension method defined in another file"
+    },
+    {
+      "from": "src/Cisharpai.Rag/Pipeline/ConversationalRagPipeline.cs#ConversationalRagPipeline::TransformQueryAsync",
+      "to": "transformer.TransformAsync",
+      "kind": "calls",
+      "status": "ambiguous",
+      "candidates": [
+        "src/Cisharpai.Rag/QueryTransformation/CompositeQueryTransformer.cs#CompositeQueryTransformer::TransformAsync",
+        "src/Cisharpai.Rag/QueryTransformation/HydeTransformer.cs#HydeTransformer::TransformAsync",
+        "src/Cisharpai.Rag/QueryTransformation/MultiQueryExpander.cs#MultiQueryExpander::TransformAsync",
+        "src/Cisharpai.Rag/QueryTransformation/QueryRewriter.cs#QueryRewriter::TransformAsync",
+        "src/Cisharpai.Rag/QueryTransformation/QueryTransformerBase.cs#QueryTransformerBase::TransformAsync",
+        "src/Cisharpai.Rag/QueryTransformation/StepBackTransformer.cs#StepBackTransformer::TransformAsync"
+      ],
+      "note": "call through an interface with several implementations; verified by hand, all six classes define TransformAsync"
+    },
+    {
+      "from": "src/Cisharpai.Rag/Pipeline/ConversationalRagPipeline.cs#ConversationalRagPipeline::TransformQueryAsync",
+      "to": "expanded.AddRange",
+      "kind": "calls",
+      "status": "ambiguous",
+      "candidates": [
+        "src/Cisharpai.Rag/InMemoryRetriever.cs#InMemoryRetriever::AddRange#0",
+        "src/Cisharpai.Rag/InMemoryRetriever.cs#InMemoryRetriever::AddRange#1"
+      ],
+      "note": "WRONG candidates, recorded on purpose: 'expanded' is a List<string>, so the call is List<string>.AddRange. The extractor lists same-named methods of unrelated types."
+    }
+  ]
+}

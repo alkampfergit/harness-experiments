@@ -1,0 +1,23 @@
+{
+  "remoteType": "gh",
+  "issueDiscoveryTechnique": "label",
+  "issueDiscoveryValue": "automated",
+  "claudeSystemPrompt": "claude-system-prompt.md",
+  "doWork": {
+    "baseBranch": "develop",
+    "maxRunsPerTick": 2,
+    "prompts": {
+      "issueDiscuss": "do-work-issue-discuss.md",
+      "prWork": "do-work-pr-work.md",
+      "prOrphan": "do-work-pr-orphan.md"
+    }
+  },
+  "allowedUsers": [
+    "alkampfergit",
+    "copilot"
+  ],
+  "agentUser": "alkampferoutlook",
+  "git": {
+    "trunkBranch": "master"
+  }
+}

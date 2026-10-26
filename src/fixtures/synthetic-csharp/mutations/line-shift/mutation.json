@@ -1,0 +1,12 @@
+{
+  "name": "line-shift",
+  "base": "initial",
+  "ops": [
+    {
+      "op": "insertLines",
+      "path": "src/Domain/Money.cs",
+      "atLine": 1,
+      "payloadFile": "banner.txt"
+    }
+  ]
+}

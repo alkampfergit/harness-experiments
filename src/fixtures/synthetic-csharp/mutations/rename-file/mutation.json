@@ -1,0 +1,11 @@
+{
+  "name": "rename-file",
+  "base": "initial",
+  "ops": [
+    {
+      "op": "rename",
+      "from": "src/Domain/OrderLine.cs",
+      "to": "src/Domain/Lines/OrderLine.cs"
+    }
+  ]
+}

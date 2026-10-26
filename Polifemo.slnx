@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Polifemo.Cli/Polifemo.Cli.csproj" />
+    <Project Path="src/Polifemo.Contracts/Polifemo.Contracts.csproj" />
+    <Project Path="src/Polifemo.Platform/Polifemo.Platform.csproj" />
+    <Project Path="src/Polifemo.Tests/Polifemo.Tests.csproj" />
+  </Folder>
+</Solution>

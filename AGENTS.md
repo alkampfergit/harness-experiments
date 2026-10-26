@@ -14,8 +14,13 @@ Each experiment explores a different technique (lexical/BM25, embeddings, hybrid
 AGENTS.md        # this file (authoritative)
 CLAUDE.md        # pointer to AGENTS.md only
 samples/         # git submodules (git-ignored): the code used as test corpora
-src/             # .NET solution: bridge, indexer, MCP server, shared abstractions
-tools/           # helper processes (e.g. tools/embed-server/ Python sidecar)
+testrepo/        # committed git submodules of PUBLIC repositories, used only by automated tests
+Polifemo.slnx    # the .NET solution (SDK pinned in global.json)
+src/             # Polifemo.Contracts, Polifemo.Platform, Polifemo.Cli (the `polifemo` tool),
+                 # Polifemo.Tests (one test project, folders named after the section tested),
+                 # fixtures/ (plain-file test repositories, never compiled)
+docs/            # technology.md, backlog/, platform-compatibility.md (pinned versions and observed behavior)
+tools/           # helper processes (tools/embed-server/ Python sidecar) and scripts (tools/sonar-local.sh)
 eval/            # queries + gold labels + metric runners (shared by all experiments)
 experiments/     # one folder per experiment/technique
 results/         # metrics output per run, comparable across experiments
@@ -29,6 +34,7 @@ Create folders only when they are needed; do not add empty scaffolding.
 - `samples/` is **git-ignored** because the sample repos may be private. Neither their content nor their URLs are committed here. To add one locally use `git submodule add -f <url> samples/<name>`, and do not commit the resulting `.gitmodules` or gitlink changes. Keep a local, untracked list of the samples used (`samples.local.md`) so runs can be reproduced.
 - Treat the **source files** under `samples/` as read-only. Never edit, commit into, or reformat submodule content.
 - Pin each submodule to a specific commit so results are reproducible. Record the commit in the results of every run.
+- **Public test corpora.** `testrepo/<name>` MAY hold committed git submodules of public repositories whose license permits redistribution and local analysis, used only by automated tests. Each is pinned to a commit; its URL, commit, license and approval date are recorded in `testrepo/corpora.json`. Changing the pin is a reviewed change that updates the expectation files in the same commit. The `samples/` rules for read-only sources and no generated artifacts apply equally: tests index a copy under `.index/work/<name>/`. Private repositories MUST NOT be added under `testrepo/`, and the "do not commit `.gitmodules` or gitlinks" rule above applies to `samples/` only.
 - Do not generate artifacts inside `samples/` (this includes tokensave's `.tokensave/` folder). Index a git worktree/copy of the pinned commit under `.index/work/<name>/` instead, and write all indexes and caches under `.index/`.
 
 ## Architecture (working hypothesis)
@@ -82,6 +88,8 @@ Design points:
 
 - Primary language of the indexed targets: **C#**. Experiment code is C# (see Technology decisions); other languages only for helper tools under `tools/`.
 - Keep generated data (indexes, embeddings, caches) out of git; add it to `.gitignore`.
+- **Zero warnings.** `dotnet build` and `dotnet test` MUST finish with 0 warnings, in the code and in the tests. `Directory.Build.props` sets `TreatWarningsAsErrors`, so CI fails on a warning. Fix the cause (for example pass `TestContext.Current.CancellationToken` where an analyzer asks for it). Do not hide a warning with `#pragma warning disable`, `[SuppressMessage]`, `<NoWarn>` or a lowered warning level; if a suppression is truly unavoidable, scope it as narrowly as possible, put the reason in a comment next to it and mention it in the commit message.
+- **Local Sonar check.** Before every commit and push run `tools/sonar-local.sh` (no upload; it analyses a throwaway copy of the working tree with the pinned `SonarAnalyzer.CSharp`) and fix every finding at its cause. It MUST report `0 finding(s)`. Also run `dotnet test` (all tests passing) and keep code coverage from dropping.
 - Commit small, focused changes; do not commit unrelated files.
 - Do not add dependencies or services without noting why in the experiment README.
 

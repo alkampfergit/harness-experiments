@@ -1,3 +1,14 @@
+<!--
+Sync Impact Report
+- Version change: 1.0.0 -> 1.1.0 (MINOR: guidance materially expanded)
+- Modified principles: III. Reproducible, Pinned Runs (adds public test corpora under testrepo/)
+- Added sections: none
+- Removed sections: none
+- Templates requiring updates: none (plan, spec and tasks templates reference the principles by number only)
+- Policy source: AGENTS.md "Public test corpora" is updated in the same change and prevails on conflict.
+- Follow-up TODOs: RATIFICATION_DATE is still unknown.
+-->
+
 # Harness Experiments Constitution
 
 ## Core Principles
@@ -48,6 +59,11 @@ Rationale: the repository exists to compare techniques with evidence, not to ass
   read-only, and no artifact (including `.tokensave/`) may be generated there. Indexing MUST
   run on a worktree or copy under `.index/work/<name>/`. All indexes, caches and models stay in
   git-ignored storage under `.index/` or equivalent.
+- Public test corpora MAY be committed as pinned git submodules under `testrepo/<name>` when the
+  repository is public and its license permits redistribution and local analysis. Provenance (URL,
+  commit, license, approval date) is recorded in `testrepo/corpora.json`, a pin change updates the
+  expectation files in the same commit, and the same read-only and no-artifacts-in-the-source rules
+  apply as for `samples/`. Private repositories MUST NOT be placed there.
 - TokenSave build, Elasticsearch version, model revisions, chunker and enrichment rules, and
   mapping versions MUST be pinned and versioned.
 - Run scripts MUST take the sample path and commit as inputs. They MUST write results to
@@ -185,4 +201,4 @@ feature.
   `docs/technology.md` is the runtime technical guidance, and the backlog under
   `docs/backlog/` tracks the implementation work.
 
-**Version**: 1.0.0 | **Ratified**: TODO(RATIFICATION_DATE): original adoption date unknown; set when the constitution is first formally ratified | **Last Amended**: 2026-10-24
+**Version**: 1.1.0 | **Ratified**: TODO(RATIFICATION_DATE): original adoption date unknown; set when the constitution is first formally ratified | **Last Amended**: 2026-10-24

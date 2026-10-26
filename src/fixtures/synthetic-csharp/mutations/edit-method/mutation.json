@@ -1,0 +1,11 @@
+{
+  "name": "edit-method",
+  "base": "initial",
+  "ops": [
+    {
+      "op": "replaceBytes",
+      "path": "src/Domain/Money.cs",
+      "payloadFile": "Money.cs"
+    }
+  ]
+}

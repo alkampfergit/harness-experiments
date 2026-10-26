@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Settings for the Microsoft.Testing.Extensions.CodeCoverage extension. Generated code (*.g.cs, such as the regex generator output under obj) is excluded. -->
+<Configuration>
+  <CodeCoverage>
+    <Sources>
+      <Exclude>
+        <Source>.*\.g\.cs$</Source>
+      </Exclude>
+    </Sources>
+  </CodeCoverage>
+</Configuration>

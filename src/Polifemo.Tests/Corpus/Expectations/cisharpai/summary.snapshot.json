@@ -1,0 +1,96 @@
+{
+  "corpus": "cisharpai",
+  "commit": "8103c0d822211a60bb31815a28d354578be6bd6c",
+  "tokensaveVersion": "7.16.0",
+  "total": 8593,
+  "projects": {
+    "AGENTS.md": {
+      "count": 11,
+      "digest": "eaf31e1a529465b5401dffa578e163de946d7e3fb32213498ebf94fbb317c910"
+    },
+    "Cisharp.Console": {
+      "count": 84,
+      "digest": "67256a22fe73229367b0a2e6399c873f159801982779986262717f00a813694b"
+    },
+    "Cisharpai": {
+      "count": 272,
+      "digest": "ceefe0132df3fc752f7be114ee90947d7e0e8dfe743ac51f3a729b6146a211ec"
+    },
+    "Cisharpai.Anthropic": {
+      "count": 206,
+      "digest": "d5ceb00aa824a7cdce3669bab5482f485c113ed53ccd66913d4226a0d1ad1b29"
+    },
+    "Cisharpai.Azure": {
+      "count": 498,
+      "digest": "1c01bce36459c332e3d85ec2f97c3edb3cec51cf7af8bb2fbdd86ec492df5d4e"
+    },
+    "Cisharpai.Cohere": {
+      "count": 275,
+      "digest": "128cb9dd73128d9a3207478bbf0959cd9bcd526a3e6d0cb96bf735039cc0a477"
+    },
+    "Cisharpai.Integration.Tests": {
+      "count": 388,
+      "digest": "19803abfb5ae1e88fea25daa3fd939696a5444504d63362e9a884296c8a1ac27"
+    },
+    "Cisharpai.OpenAi": {
+      "count": 394,
+      "digest": "0f5834b954b594556b9b7ccc1c799e7e66a84e9e5194e6ca5f88dcc4769aabcd"
+    },
+    "Cisharpai.Rag": {
+      "count": 414,
+      "digest": "8352e26204cd620bd851c2caa6f4c1cee0c4f6fb7df5a00c5473ccb9b71ec041"
+    },
+    "Cisharpai.Rag.OpenAi": {
+      "count": 20,
+      "digest": "fce5310204cccd211b7af4864de94db914f05a721ce827a64357e62a547ce8a4"
+    },
+    "Cisharpai.Rag.Tokenizers": {
+      "count": 12,
+      "digest": "1c8b6f4c53e6a7c1e32d74899f882c84f88d56267764bd9417b5d4739fd78390"
+    },
+    "Cisharpai.Testing": {
+      "count": 220,
+      "digest": "bae9f29a5006840af0dfc62e69a60655169fc87cba93bd8480ed9c2ade4dc5ea"
+    },
+    "Cisharpai.Tests": {
+      "count": 4156,
+      "digest": "e27c90d4d980aa093a2d052d086aed5b88b57b8ca5a96519b1929203b3f92c62"
+    },
+    "Cisharpai.Tests.Common": {
+      "count": 25,
+      "digest": "a9459c90300fe9cd314aea4df11afafb5c25e7820c950fb7b9e7c678f653856a"
+    },
+    "README.md": {
+      "count": 21,
+      "digest": "9c8d926188458138fed577854dac7f5711f5b0f14990a5ca85295140ab29b710"
+    },
+    "RELEASE_NOTES.md": {
+      "count": 3,
+      "digest": "5fc80b93b386bc8235cfaceeb1f43723292879993c15e92f9c29943d8de573b7"
+    },
+    "codex.toml": {
+      "count": 6,
+      "digest": "f33ebb875af959e697bddf7682ffb33d82509750b33b1e7b06f356193e03b117"
+    },
+    "docs": {
+      "count": 8,
+      "digest": "c76c7dbe3a173f70ae00c7e199424c0c78e53ee159315f21d0d05686b6dec3a3"
+    },
+    "llm": {
+      "count": 177,
+      "digest": "184b43e007151d7571c43eefc7c34389372912c4992a2a5e96c923f1f877ce05"
+    },
+    "memories": {
+      "count": 146,
+      "digest": "139f64e259affd20d2cb3399613a8150ad6d08eb3405c80f9fbeb78e4d514988"
+    },
+    "specs": {
+      "count": 919,
+      "digest": "c23f11f47897db7cc1ba301edadf53084f6d009f607a58cac0fe97d56000efde"
+    },
+    "wiki": {
+      "count": 338,
+      "digest": "7c55015ce650c11dab7ede9c26b9fc7bee7e2261871366dc9812a6d2ec8a2711"
+    }
+  }
+}

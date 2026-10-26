@@ -10,11 +10,12 @@ set -euo pipefail
 # transport: a redirect must not be able to downgrade the fetch to plaintext.
 CURL_TLS_OPTS=(--proto '=https' --tlsv1.2)
 
+BANNER="=========================================="
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
-echo "=========================================="
+echo "$BANNER"
 echo "Starting devcontainer post-creation setup"
-echo "=========================================="
+echo "$BANNER"
 
 # Fix apt sources issue with yarn
 echo "Cleaning up apt sources..."
@@ -60,23 +61,36 @@ else
 fi
 
 # tokensave: code graph used both by agents and as the parser for the
-# tokensave-bridge experiment.
-echo "Installing tokensave..."
-TOKENSAVE_TAG=$(curl "${CURL_TLS_OPTS[@]}" -sI https://github.com/aovestdipaperino/tokensave/releases/latest | grep -i '^location:' | sed 's|.*/tag/||;s/\r//' || true)
-if [[ -n "$TOKENSAVE_TAG" ]]; then
+# tokensave-bridge experiment. The version is pinned (docs/platform-compatibility.md)
+# and the download is verified against a recorded sha256: a mismatch fails the
+# install instead of falling back to the latest release.
+TOKENSAVE_VERSION="7.16.0"
+TOKENSAVE_SHA256_AARCH64_LINUX="b1b28daf21ea51f44ccfd1ea3101505d6db644a055cef261bcdb3beb8369d03f"
+TOKENSAVE_SHA256_X86_64_LINUX="783dcea8bb8b472982b497523ad912a5176b8d8e770d25592dc38b5f749ac7ea"
+
+echo "Installing tokensave ${TOKENSAVE_VERSION}..."
+if command -v tokensave >/dev/null 2>&1 && [[ "$(tokensave --version)" == *"$TOKENSAVE_VERSION" ]]; then
+    echo "  tokensave ${TOKENSAVE_VERSION} already installed, skipping."
+else
     ARCH=$(uname -m)
     if [[ "$ARCH" = "aarch64" || "$ARCH" = "arm64" ]]; then
         TOKENSAVE_ARCH="aarch64-linux"
+        TOKENSAVE_SHA256="$TOKENSAVE_SHA256_AARCH64_LINUX"
     else
         TOKENSAVE_ARCH="x86_64-linux"
+        TOKENSAVE_SHA256="$TOKENSAVE_SHA256_X86_64_LINUX"
     fi
-    TOKENSAVE_URL="https://github.com/aovestdipaperino/tokensave/releases/download/${TOKENSAVE_TAG}/tokensave-${TOKENSAVE_TAG}-${TOKENSAVE_ARCH}.tar.gz"
-    echo "  Downloading tokensave ${TOKENSAVE_TAG#v} (${TOKENSAVE_ARCH})..."
+    TOKENSAVE_URL="https://github.com/aovestdipaperino/tokensave/releases/download/v${TOKENSAVE_VERSION}/tokensave-v${TOKENSAVE_VERSION}-${TOKENSAVE_ARCH}.tar.gz"
+    echo "  Downloading tokensave ${TOKENSAVE_VERSION} (${TOKENSAVE_ARCH})..."
     TMP_DIR=$(mktemp -d)
-    if curl "${CURL_TLS_OPTS[@]}" -fsSL "$TOKENSAVE_URL" -o "$TMP_DIR/tokensave.tar.gz" \
-        && tar xzf "$TMP_DIR/tokensave.tar.gz" -C "$TMP_DIR" \
-        && [[ -f "$TMP_DIR/tokensave" ]]; then
-        sudo mv "$TMP_DIR/tokensave" /usr/local/bin/tokensave
+    if curl "${CURL_TLS_OPTS[@]}" -fsSL "$TOKENSAVE_URL" -o "$TMP_DIR/tokensave.tar.gz"; then
+        if echo "${TOKENSAVE_SHA256}  $TMP_DIR/tokensave.tar.gz" | sha256sum -c --status -; then
+            if tar xzf "$TMP_DIR/tokensave.tar.gz" -C "$TMP_DIR" && [[ -f "$TMP_DIR/tokensave" ]]; then
+                sudo mv "$TMP_DIR/tokensave" /usr/local/bin/tokensave
+            fi
+        else
+            echo "  ERROR: sha256 mismatch for ${TOKENSAVE_URL}; tokensave was NOT installed." >&2
+        fi
     fi
     rm -rf "$TMP_DIR"
 fi
@@ -86,6 +100,8 @@ if command -v tokensave >/dev/null 2>&1; then
     # `tokensave install` prompts for the global git hooks; `--git-hook yes`
     # answers up front so the non-interactive postCreateCommand cannot hang.
     # The hooks are what keep the index fresh after commits and checkouts.
+    # Sample content must never leave the machine (Constitution I): no token-count uploads.
+    tokensave disable-upload-counter || true
     echo "  Configuring tokensave for Claude Code..."
     tokensave install --agent claude --git-hook yes </dev/null || true
     echo "  Configuring tokensave for Codex CLI..."
@@ -94,6 +110,10 @@ if command -v tokensave >/dev/null 2>&1; then
     # fresh clone. samples/ is git-ignored, so it is not part of this index.
     echo "  Indexing repository..."
     tokensave init "$REPO_DIR" || true
+    if [[ -f "$REPO_DIR/.tokensave/config.json" ]]; then
+        jq '.report_savings = false' "$REPO_DIR/.tokensave/config.json" >"$REPO_DIR/.tokensave/config.json.tmp" \
+            && mv "$REPO_DIR/.tokensave/config.json.tmp" "$REPO_DIR/.tokensave/config.json"
+    fi
     tokensave status "$REPO_DIR" || true
 else
     echo "tokensave install failed or is unavailable, skipping configuration."
@@ -168,6 +188,12 @@ else
     echo "codex CLI not available, skipping Codex marketplace setup."
 fi
 
-echo "=========================================="
+# Public test corpus (testrepo/, pinned submodule). Best effort: needs network once.
+if [[ -f "$REPO_DIR/.gitmodules" ]] && grep -q 'testrepo/cisharpai' "$REPO_DIR/.gitmodules"; then
+    echo "Initializing testrepo/cisharpai..."
+    git -C "$REPO_DIR" submodule update --init testrepo/cisharpai || true
+fi
+
+echo "$BANNER"
 echo "Devcontainer post-creation setup complete"
-echo "=========================================="
+echo "$BANNER"

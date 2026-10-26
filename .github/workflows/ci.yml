@@ -1,0 +1,209 @@
+name: CI
+run-name: CI · ${{ github.ref_name }} · #${{ github.run_number }}
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  version:
+    name: Calculate GitVersion
+    runs-on: ubuntu-latest
+    outputs:
+      full_semver: ${{ steps.gitversion.outputs.full_semver }}
+    steps:
+      - name: Check out full history
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Set up .NET SDK
+        uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+
+      - name: Install GitVersion.Tool
+        run: |
+          dotnet tool install --global GitVersion.Tool --version 6.8.2
+          echo "$HOME/.dotnet/tools" >> "$GITHUB_PATH"
+
+      - name: Calculate semantic version
+        id: gitversion
+        shell: bash
+        run: |
+          version="$(dotnet-gitversion /showvariable FullSemVer)"
+          echo "full_semver=$version" >> "$GITHUB_OUTPUT"
+          echo "GitVersion FullSemVer: $version"
+          {
+            echo "### GitVersion"
+            echo
+            echo "FullSemVer: \`$version\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  build-and-test:
+    name: Build and test (${{ needs.version.outputs.full_semver }})
+    needs: version
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      checks: write
+      pull-requests: write
+    env:
+      ELASTICSEARCH_URL: http://localhost:9200
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+    services:
+      elasticsearch:
+        image: docker.elastic.co/elasticsearch/elasticsearch:9.5.5
+        env:
+          discovery.type: single-node
+          xpack.security.enabled: "false"
+          xpack.security.http.ssl.enabled: "false"
+          xpack.security.transport.ssl.enabled: "false"
+          xpack.license.self_generated.type: basic
+          ES_JAVA_OPTS: -Xms1g -Xmx1g
+        ports:
+          - 9200:9200
+        options: >-
+          --health-cmd "curl --silent --show-error --fail 'http://localhost:9200/_cluster/health?wait_for_status=yellow&timeout=5s'"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 30
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v7
+        with:
+          submodules: true
+          fetch-depth: 0 # Sonar needs full history for blame and new-code detection
+
+      - name: Install pinned TokenSave
+        shell: bash
+        run: |
+          case "$(uname -m)" in
+            x86_64)
+              tokensave_arch=x86_64-linux
+              tokensave_sha256=783dcea8bb8b472982b497523ad912a5176b8d8e770d25592dc38b5f749ac7ea
+              ;;
+            aarch64|arm64)
+              tokensave_arch=aarch64-linux
+              tokensave_sha256=b1b28daf21ea51f44ccfd1ea3101505d6db644a055cef261bcdb3beb8369d03f
+              ;;
+            *)
+              echo "Unsupported TokenSave runner architecture: $(uname -m)" >&2
+              exit 1
+              ;;
+          esac
+          archive="$RUNNER_TEMP/tokensave.tar.gz"
+          curl --proto "=https" --tlsv1.2 --fail --silent --show-error --location \
+            "https://github.com/aovestdipaperino/tokensave/releases/download/v7.16.0/tokensave-v7.16.0-${tokensave_arch}.tar.gz" \
+            --output "$archive"
+          echo "$tokensave_sha256  $archive" | sha256sum --check --status
+          tar --extract --gzip --file "$archive" --directory "$RUNNER_TEMP"
+          sudo install --mode 0755 "$RUNNER_TEMP/tokensave" /usr/local/bin/tokensave
+          tokensave --version
+          tokensave disable-upload-counter
+
+      - name: Set up .NET SDK
+        uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+
+      - name: Set up JDK 21 for the Sonar scanner
+        if: ${{ env.SONAR_TOKEN != '' }}
+        uses: actions/setup-java@c1e323688fd81a25caa38c78aa6df2d33d3e20d9 # v4.8.0
+        with:
+          java-version: 21
+          distribution: zulu
+
+      - name: Cache SonarCloud packages
+        if: ${{ env.SONAR_TOKEN != '' }}
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: ~/.sonar/cache
+          key: ${{ runner.os }}-sonar
+          restore-keys: ${{ runner.os }}-sonar
+
+      - name: Install Sonar scanner
+        if: ${{ env.SONAR_TOKEN != '' }}
+        run: |
+          dotnet tool install --global dotnet-sonarscanner
+          echo "$HOME/.dotnet/tools" >> "$GITHUB_PATH"
+
+      - name: Begin Sonar analysis
+        if: ${{ env.SONAR_TOKEN != '' }}
+        run: >-
+          dotnet-sonarscanner begin
+          /k:"alkampfergit_harness-experiments" /o:"alkampfergit-github"
+          /d:sonar.token="$SONAR_TOKEN"
+          /d:sonar.host.url="https://sonarcloud.io"
+          /d:sonar.cs.cobertura.reportsPaths="TestResults/**/coverage.cobertura.xml"
+
+      - name: Restore
+        run: dotnet restore Polifemo.slnx
+
+      - name: Build
+        run: dotnet build Polifemo.slnx --no-restore --configuration Release
+
+      - name: Test
+        id: test
+        run: >-
+          dotnet test --solution Polifemo.slnx --no-restore --configuration Release
+          --results-directory TestResults -- --report-trx
+          --report-trx-filename "{asm}_{tfm}_{arch}.trx"
+          --coverage --coverage-output-format cobertura
+          --coverage-output coverage.cobertura.xml
+          --coverage-settings "$GITHUB_WORKSPACE/coverage.settings.xml"
+
+      - name: End Sonar analysis
+        if: ${{ !cancelled() && env.SONAR_TOKEN != '' }}
+        run: dotnet-sonarscanner end /d:sonar.token="$SONAR_TOKEN"
+
+      - name: Publish test report
+        if: ${{ !cancelled() }}
+        uses: EnricoMi/publish-unit-test-result-action@7622c5bf3d112a72ab4fa3951c2aa5723d8ab92d # v2
+        with:
+          files: TestResults/**/*.trx
+          check_name: Unit and integration test results
+          comment_mode: off
+
+      - name: Coverage summary
+        if: ${{ !cancelled() }}
+        id: coverage
+        shell: bash
+        run: |
+          file="$(find TestResults -name coverage.cobertura.xml | head -n 1)"
+          if [ -z "$file" ]; then echo "No coverage report found" >&2; exit 1; fi
+          line="$(sed -n 's/.*<coverage line-rate="\([0-9.]*\)".*/\1/p' "$file" | head -n 1)"
+          branch="$(sed -n 's/.*<coverage [^>]*branch-rate="\([0-9.]*\)".*/\1/p' "$file" | head -n 1)"
+          body="$(printf '### Code coverage\n\n| Metric | Coverage |\n|---|---|\n| Lines | %.1f%% |\n| Branches | %.1f%% |\n' \
+            "$(echo "$line * 100" | bc -l)" "$(echo "$branch * 100" | bc -l)")"
+          echo "$body" >> "$GITHUB_STEP_SUMMARY"
+          { echo "body<<EOF"; echo "<!-- coverage-report -->"; echo "$body"; echo "EOF"; } >> "$GITHUB_OUTPUT"
+
+      - name: Upload coverage report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-cobertura
+          path: TestResults/**/coverage.cobertura.xml
+          if-no-files-found: error
+
+      - name: Comment coverage on pull request
+        if: ${{ !cancelled() && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository }}
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BODY: ${{ steps.coverage.outputs.body }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          id="$(gh api "repos/$GITHUB_REPOSITORY/issues/$PR/comments" --paginate \
+            --jq '[.[] | select(.body | startswith("<!-- coverage-report -->"))][0].id // empty')"
+          if [ -n "$id" ]; then
+            gh api --method PATCH "repos/$GITHUB_REPOSITORY/issues/comments/$id" -f body="$BODY" >/dev/null
+          else
+            gh api --method POST "repos/$GITHUB_REPOSITORY/issues/$PR/comments" -f body="$BODY" >/dev/null
+          fi

@@ -28,6 +28,9 @@
         "github.copilot"
       ],
       "settings": {
+        "dotnet.defaultSolution": "Polifemo.slnx",
+        "files.watcherExclude": { "**/testrepo/**": true },
+        "search.exclude": { "testrepo": true },
         "terminal.integrated.defaultProfile.linux": "zsh",
         "terminal.integrated.profiles.linux": {
           "zsh": {
@@ -38,5 +41,6 @@
     }
   },
   "postCreateCommand": "bash .devcontainer/postcreate.sh",
+  "postStartCommand": "bash .devcontainer/start-do-work-cron.sh",
   "remoteUser": "vscode"
 }

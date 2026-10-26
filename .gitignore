@@ -14,3 +14,12 @@ data/
 .DS_Store
 .idea/
 .vscode/
+
+# .NET build output and test artifacts
+bin/
+obj/
+**/.tokensave/
+*.received
+samples.local.md
+TestResults/
+coverage/

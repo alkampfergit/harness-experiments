@@ -1,0 +1,10 @@
+{
+  "name": "delete-file",
+  "base": "initial",
+  "ops": [
+    {
+      "op": "delete",
+      "path": "src/Domain/OrderStatus.cs"
+    }
+  ]
+}
