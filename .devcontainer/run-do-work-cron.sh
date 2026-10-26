@@ -2,7 +2,7 @@
 set -u -o pipefail
 
 REPO_DIR="/workspaces/harness-experiments"
-SETUP_BRANCH="feature/001_first"
+SETUP_BRANCH="develop"
 
 cd "$REPO_DIR" || exit 1
 
