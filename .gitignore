@@ -23,3 +23,4 @@ obj/
 samples.local.md
 TestResults/
 coverage/
+.automata/conductor-watch.json
