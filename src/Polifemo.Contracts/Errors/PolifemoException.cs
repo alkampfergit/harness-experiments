@@ -33,3 +33,11 @@ public sealed class EmbeddingProfileMismatchException(string expected, string ac
     public string Expected { get; } = expected;
     public string Actual { get; } = actual;
 }
+
+/// <summary>A privacy or local-only rule refused the operation (F02-01, F02-03). The message carries no payload.</summary>
+public sealed class PrivacyPolicyException(string code, string message)
+    : PolifemoException(code, message);
+
+/// <summary>Scope or snapshot resolution failed (F02-02). Unknown and unauthorized scopes share one code on purpose.</summary>
+public sealed class ScopeException(string code, string message)
+    : PolifemoException(code, message);

@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using System.Text.RegularExpressions;
 using Polifemo.Contracts.Errors;
+using Polifemo.Platform.Privacy;
 using Polifemo.Platform.Processes;
 
 namespace Polifemo.Platform.TokenSave;
@@ -40,6 +41,7 @@ public sealed partial class CompatibilityChecker(
             return new CompatibilityReport(binary, null, null, null, mismatches, warnings);
         }
 
+        CheckUpload(worktree, mismatches, warnings);
         var relative = Path.GetRelativePath(worktree, db.DatabasePath);
         var before = Snapshot(db.DatabasePath);
         string? indexVersion;
@@ -69,7 +71,22 @@ public sealed partial class CompatibilityChecker(
         if (binary != expectedVersion)
             mismatches.Add(new Mismatch("TS_VERSION_MISMATCH", "tokensave --version", expectedVersion, binary));
         var indexVersion = Compare(reader, expectedVersion, mismatches, warnings);
+        CheckUpload(worktree, mismatches, warnings);
         return new CompatibilityReport(binary, indexVersion, Path.GetRelativePath(worktree, db.DatabasePath), db.Resolution, mismatches, warnings);
+    }
+
+    /// <summary>Optional usage reporting must be off (constitution I). An unstated setting is a warning, an enabled one a mismatch.</summary>
+    private static void CheckUpload(string worktree, List<Mismatch> mismatches, List<Mismatch> warnings)
+    {
+        switch (TokenSaveUploadGuard.Read(worktree))
+        {
+            case UploadSetting.Enabled:
+                mismatches.Add(new Mismatch("TS_UPLOAD_ENABLED", ".tokensave/config.json", "report_savings: false", "report_savings: true"));
+                break;
+            case UploadSetting.Unspecified:
+                warnings.Add(new Mismatch("TS_UPLOAD_SETTING_ABSENT", ".tokensave/config.json", "report_savings: false"));
+                break;
+        }
     }
 
     private string? Compare(TokenSaveReader reader, string expectedVersion, List<Mismatch> mismatches, List<Mismatch> warnings)

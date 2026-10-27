@@ -39,6 +39,6 @@ internal static class Git
         var result = await TryAsync(workDir, list, env, ct);
         return result.ExitCode == 0
             ? result.StdOut.Trim()
-            : throw new FixturePreparationException("GIT_FAILED", $"git {list.FirstOrDefault()} failed: {result.StdErr.Trim()}");
+            : throw new FixturePreparationException("GIT_FAILED", $"git {list.FirstOrDefault()} failed with exit code {result.ExitCode}.");
     }
 }

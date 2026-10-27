@@ -51,7 +51,7 @@ public sealed partial class SamplePreparer(string workRoot)
         {
             var init = await Processes.ProcessRunner.RunAsync("tokensave", ["init", target], target, Git.IsolatedEnvironment, ct: ct);
             if (init.ExitCode != 0)
-                throw new FixturePreparationException("PREP_INDEX_FAILED", $"tokensave init failed: {init.StdErr.Trim()}");
+                throw new FixturePreparationException("PREP_INDEX_FAILED", $"tokensave init failed with exit code {init.ExitCode}.");
         }
 
         await File.WriteAllTextAsync(Path.Combine(target, ".polifemo-prep.json"), JsonSerializer.Serialize(new

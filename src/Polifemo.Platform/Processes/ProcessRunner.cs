@@ -1,12 +1,13 @@
 using System.Diagnostics;
 using Polifemo.Contracts.Errors;
+using Polifemo.Platform.Privacy;
 
 namespace Polifemo.Platform.Processes;
 
 public sealed record ProcessResult(int ExitCode, string StdOut, string StdErr);
 
 /// <summary>
-/// Runs external tools (git, tokensave). Never logs the environment. The child gets no stdin (it sees
+/// Runs external tools (git, tokensave). Never logs the environment, and always sets the offline/no-telemetry variables of <see cref="PrivacyEnvironment"/>. The child gets no stdin (it sees
 /// end-of-file at once), so a tool that prompts when it finds a terminal cannot block a run, and every
 /// call has a timeout.
 /// </summary>
@@ -31,8 +32,8 @@ public static class ProcessRunner
         };
         foreach (var a in args) psi.ArgumentList.Add(a);
         if (workingDirectory is not null) psi.WorkingDirectory = workingDirectory;
-        if (environment is not null)
-            foreach (var (k, v) in environment) psi.Environment[k] = v;
+        // Offline and no-telemetry variables always win over the caller's (see PrivacyEnvironment).
+        foreach (var (k, v) in PrivacyEnvironment.Merge(environment)) psi.Environment[k] = v;
 
         using var p = Process.Start(psi) ?? throw new InvalidOperationException($"Cannot start '{fileName}'.");
         p.StandardInput.Close();
