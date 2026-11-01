@@ -8,6 +8,12 @@
 
 **Input**: GitHub issue #10 (F03-01, child of story #13; depends on #2, #3, #4): isolate all TokenSave table knowledge in one adapter that resolves branch metadata, opens the TokenSave database read-only and extracts files, nodes, edges, doc associations and unresolved/ambiguous relationships from a consistent snapshot.
 
+## Clarifications
+
+### Session 2026-11-01
+
+- Q: When the adapter detects that TokenSave changed during a read (a concurrent sync, or the graph no longer matching the source files), should it retry automatically or fail immediately? → A: Retry the whole read from a fresh snapshot up to 3 times, then fail with an explicit error.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Read the active graph from the correct database (Priority: P1)
@@ -79,8 +85,8 @@ While the exporter reads, TokenSave may run a sync. The adapter guarantees that 
 - **FR-005**: The adapter MUST verify the schema/version against a pinned supported set before extraction and fail with an actionable error naming found versus supported versions.
 - **FR-006**: The adapter MUST detect corrupt or incomplete data (missing tables/columns, unreadable database) and fail with an actionable error, returning no partial result.
 - **FR-007**: The adapter MUST extract files, nodes, edges, doc associations and unresolved/ambiguous relationships, preserving ambiguity and confidence.
-- **FR-008**: All records in one result MUST come from a single consistent snapshot of the graph, documented with its locking/snapshot strategy.
-- **FR-009**: The adapter MUST detect and report a mismatch between the graph revision and the source files it is paired with.
+- **FR-008**: All records in one result MUST come from a single consistent snapshot of the graph, documented with its locking/snapshot strategy. If a revision change is detected during a read, the adapter MUST discard the partial read and retry the whole read from a fresh snapshot, at most 3 retries, then fail with an explicit "revision kept changing" error; it MUST never return mixed-revision data.
+- **FR-009**: The adapter MUST detect a mismatch between the graph revision and the source files it is paired with, apply the same bounded retry as FR-008, and report the mismatch explicitly if it persists after the retry limit.
 - **FR-010**: The adapter MUST NOT use TokenSave's last-sync time as a downstream publication cursor or change cursor.
 - **FR-011**: Application identity MUST NOT depend on TokenSave internal ids or line numbers; they are exposed as provenance only.
 - **FR-012**: Errors and logs MUST NOT include raw source text or confidential paths beyond what is needed to act.
@@ -98,7 +104,7 @@ While the exporter reads, TokenSave may run a sync. The adapter guarantees that 
 
 - **SC-001**: For every tested failure mode (absent, malformed, missing target, unsupported version, corrupt/incomplete), 100% of cases yield a distinct error stating the cause and the corrective action, and zero partial results.
 - **SC-002**: Across all read tests, the TokenSave store is unchanged (zero files created or modified).
-- **SC-003**: In a concurrent-sync test run repeatedly, 0 outputs mix records from different revisions.
+- **SC-003**: In a concurrent-sync test run repeatedly, 0 outputs mix records from different revisions; each run ends in one complete revision (possibly after up to 3 retries) or an explicit retry-exhausted error.
 - **SC-004**: Tests cover absent branch metadata, a supported schema and at least one version-mismatch case, and the full suite passes with zero warnings and zero Sonar findings.
 
 ## Assumptions
