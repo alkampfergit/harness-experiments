@@ -68,25 +68,36 @@ def _resolve_repo_root(script_dir: Path) -> Path:
     return _find_project_root(script_dir) or Path.cwd()
 
 
+def _containing_root(resolved: str, allowed_roots: list[Path]) -> str | None:
+    """Return the allowed root (as a string) that contains ``resolved``, if any."""
+    for root in allowed_roots:
+        base = str(root)
+        if os.path.commonpath([base, resolved]) == base:
+            return base
+    return None
+
+
 def _read_message_file(path_arg: str, allowed_roots: list[Path]) -> str:
     if not path_arg:
         raise _ScriptError("[specify] Error: --message-file requires a path argument")
     # Only a regular file of bounded size under the project root or the system
     # temporary directory is accepted (symlinks resolved first).
-    path = Path(os.path.realpath(path_arg))
-    if not any(path.is_relative_to(root) for root in allowed_roots):
+    resolved = os.path.realpath(path_arg)
+    base = _containing_root(resolved, allowed_roots)
+    if base is None or os.path.commonpath([base, resolved]) != base:
         raise _ScriptError(
             f"[specify] Error: message file '{path_arg}' must be inside the project "
             "or the system temporary directory"
         )
-    if not path.is_file():
+    if not os.path.isfile(resolved):
         raise _ScriptError(f"[specify] Error: message file '{path_arg}' not found")
-    if path.stat().st_size > _MAX_MESSAGE_BYTES:
+    if os.path.getsize(resolved) > _MAX_MESSAGE_BYTES:
         raise _ScriptError(
             f"[specify] Error: message file '{path_arg}' is larger than {_MAX_MESSAGE_BYTES} bytes"
         )
     try:
-        text = path.read_text(encoding="utf-8")
+        with open(resolved, encoding="utf-8") as handle:
+            text = handle.read(_MAX_MESSAGE_BYTES + 1)
     except (OSError, UnicodeDecodeError) as exc:
         raise _ScriptError(
             f"[specify] Error: cannot read message file '{path_arg}': {exc}"
