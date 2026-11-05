@@ -10,7 +10,8 @@ Usage: auto_commit.py <event_name> [generated_message]
   e.g.: auto_commit.py after_specify
   e.g.: auto_commit.py after_specify --message-file /tmp/commit-msg.txt  (commit_style: conventional)
 
-The message file is caller-owned: it is read but never deleted here.
+The message file is caller-owned: it is read but never deleted here. It must
+live under the project root or the system temporary directory.
 SPECIFY_INIT_DIR, when set, selects the project root and is validated before
 configuration is read or Git is run.
 """
@@ -22,10 +23,13 @@ import re
 import shutil
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 _QUOTES = "\"'"
 _COMMIT_STYLES = ("fixed", "conventional")
+_SPECIFY_DIR = ".specify"
+_MAX_MESSAGE_BYTES = 64 * 1024
 
 
 class _ScriptError(Exception):
@@ -35,7 +39,7 @@ class _ScriptError(Exception):
 def _find_project_root(start: Path) -> Path | None:
     current = start
     while True:
-        if (current / ".specify").is_dir() or (current / ".git").exists():
+        if (current / _SPECIFY_DIR).is_dir() or (current / ".git").exists():
             return current
         if current.parent == current:
             return None
@@ -49,7 +53,7 @@ def _resolve_init_dir(value: str) -> Path:
         raise _ScriptError(
             f"ERROR: SPECIFY_INIT_DIR does not point to an existing directory: {value}"
         )
-    if not (candidate / ".specify").is_dir():
+    if not (candidate / _SPECIFY_DIR).is_dir():
         raise _ScriptError(
             "ERROR: SPECIFY_INIT_DIR is not a Spec Kit project (no .specify/ directory): "
             f"{candidate}"
@@ -64,12 +68,23 @@ def _resolve_repo_root(script_dir: Path) -> Path:
     return _find_project_root(script_dir) or Path.cwd()
 
 
-def _read_message_file(path_arg: str) -> str:
+def _read_message_file(path_arg: str, allowed_roots: list[Path]) -> str:
     if not path_arg:
         raise _ScriptError("[specify] Error: --message-file requires a path argument")
-    path = Path(path_arg)
+    # Only a regular file of bounded size under the project root or the system
+    # temporary directory is accepted (symlinks resolved first).
+    path = Path(os.path.realpath(path_arg))
+    if not any(path.is_relative_to(root) for root in allowed_roots):
+        raise _ScriptError(
+            f"[specify] Error: message file '{path_arg}' must be inside the project "
+            "or the system temporary directory"
+        )
     if not path.is_file():
         raise _ScriptError(f"[specify] Error: message file '{path_arg}' not found")
+    if path.stat().st_size > _MAX_MESSAGE_BYTES:
+        raise _ScriptError(
+            f"[specify] Error: message file '{path_arg}' is larger than {_MAX_MESSAGE_BYTES} bytes"
+        )
     try:
         text = path.read_text(encoding="utf-8")
     except (OSError, UnicodeDecodeError) as exc:
@@ -79,7 +94,7 @@ def _read_message_file(path_arg: str) -> str:
     return text.rstrip("\r\n")
 
 
-def _parse_message_args(args: list[str]) -> str:
+def _parse_message_args(args: list[str], allowed_roots: list[Path]) -> str:
     """Return the generated commit message from --message-file or a positional argument.
 
     The last message source wins, as in the bash twin.
@@ -88,7 +103,9 @@ def _parse_message_args(args: list[str]) -> str:
     i = 0
     while i < len(args):
         if args[i] == "--message-file":
-            generated = _read_message_file(args[i + 1] if i + 1 < len(args) else "")
+            generated = _read_message_file(
+                args[i + 1] if i + 1 < len(args) else "", allowed_roots
+            )
             i += 2
         else:
             generated = args[i]
@@ -167,35 +184,42 @@ def _auto_commit_block(lines: list[str]) -> list[str]:
     return block
 
 
-def _parse_event_settings(block: list[str], event_name: str) -> tuple[bool, str, bool]:
-    """Return (enabled, message, default_enabled) for one event in the auto_commit block."""
-    enabled = False
-    commit_msg = ""
-    default_enabled = False
-    in_event = False
+def _is_default_true(line: str) -> bool:
+    return bool(re.match(r"^\s+default:\s", line)) and _lower_scalar(line) == "true"
+
+
+def _is_sibling_key(line: str) -> bool:
+    """A key at two-space indent (not four or more) ends the current event."""
+    return bool(re.match(r"^\s{2}[a-z]", line)) and not re.match(r"^\s{4}", line)
+
+
+def _event_lines(block: list[str], event_name: str) -> list[str]:
+    """Return the lines nested under ``event_name:`` in the auto_commit block."""
     event_header = re.compile(rf"^\s+{re.escape(event_name)}:")
-
+    lines: list[str] = []
+    in_event = False
     for line in block:
-        if re.match(r"^\s+default:\s", line) and _lower_scalar(line) == "true":
-            default_enabled = True
-
         if event_header.match(line):
             in_event = True
-            continue
-        if not in_event:
-            continue
-
-        # Exit on the next sibling key (two-space indent, not four or more).
-        if re.match(r"^\s{2}[a-z]", line) and not re.match(r"^\s{4}", line):
+        elif in_event and _is_sibling_key(line):
             in_event = False
-            continue
+        elif in_event:
+            lines.append(line)
+    return lines
+
+
+def _parse_event_settings(block: list[str], event_name: str) -> tuple[bool, str, bool]:
+    """Return (enabled, message, default_enabled) for one event in the auto_commit block."""
+    default_enabled = any(_is_default_true(line) for line in block)
+    enabled = False
+    commit_msg = ""
+    for line in _event_lines(block, event_name):
         if re.search(r"\senabled:", line):
             value = _lower_scalar(line)
             if value in ("true", "false"):
                 enabled = value == "true"
         if re.search(r"\smessage:", line):
             commit_msg = _strip_quotes(_value_after_colon(line))
-
     return enabled, commit_msg, default_enabled
 
 
@@ -254,8 +278,12 @@ def main(argv: list[str]) -> int:
         return 1
 
     try:
-        generated_message = _parse_message_args(argv[1:])
         repo_root = _resolve_repo_root(Path(__file__).resolve().parent)
+        allowed_roots = [
+            Path(os.path.realpath(repo_root)),
+            Path(os.path.realpath(tempfile.gettempdir())),
+        ]
+        generated_message = _parse_message_args(argv[1:], allowed_roots)
     except _ScriptError as exc:
         print(exc, file=sys.stderr)
         return 1
@@ -271,7 +299,7 @@ def main(argv: list[str]) -> int:
         )
         return 0
 
-    config_file = repo_root / ".specify" / "extensions" / "git" / "git-config.yml"
+    config_file = repo_root / _SPECIFY_DIR / "extensions" / "git" / "git-config.yml"
     if not config_file.is_file():
         # No config file — auto-commit disabled by default
         return 0

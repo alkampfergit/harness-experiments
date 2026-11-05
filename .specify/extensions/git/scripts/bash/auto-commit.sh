@@ -81,7 +81,8 @@ _find_project_root() {
 
 # True when the directory is inside a Git worktree (works for nested projects).
 _is_git_worktree() {
-    command -v git >/dev/null 2>&1 && git -C "$1" rev-parse --is-inside-work-tree >/dev/null 2>&1
+    local dir="$1"
+    command -v git >/dev/null 2>&1 && git -C "$dir" rev-parse --is-inside-work-tree >/dev/null 2>&1
 }
 
 # Resolve the project root before any configuration is read or Git runs.
@@ -120,6 +121,9 @@ if [[ -n "$MESSAGE_FILE_ABS" ]]; then
     case "$MESSAGE_FILE_ABS" in
         "$_repo_phys"/*)
             EXCLUDE_PATHSPEC=(":(exclude,literal)${MESSAGE_FILE_ABS#"$_repo_phys"/}")
+            ;;
+        *)
+            # Outside the worktree: nothing to exclude from staging.
             ;;
     esac
 fi

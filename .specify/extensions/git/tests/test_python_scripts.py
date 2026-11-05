@@ -33,7 +33,8 @@ _GIT_ENV = {
 
 def _load(module_name: str) -> ModuleType:
     spec = importlib.util.spec_from_file_location(module_name, SCRIPTS / f"{module_name}.py")
-    assert spec is not None and spec.loader is not None
+    assert spec is not None
+    assert spec.loader is not None
     module = importlib.util.module_from_spec(spec)
     # Registered before execution: dataclasses look the module up by name.
     sys.modules[module_name] = module
@@ -205,3 +206,22 @@ def test_fetch_remotes_config_key_is_read(tmp_path: Path) -> None:
 
     config.write_text("branch_numbering: sequential\n", encoding="utf-8")
     assert create_branch.read_git_config_value(config, "fetch_remotes") == ""
+
+
+def test_message_file_outside_allowed_roots_is_rejected(tmp_path: Path) -> None:
+    auto_commit = _load("auto_commit")
+    project = tmp_path / "project"
+    project.mkdir()
+    outside = tmp_path / "outside.txt"
+    outside.write_text("feat: nope\n", encoding="utf-8")
+
+    with pytest.raises(auto_commit._ScriptError, match="must be inside the project"):
+        auto_commit._read_message_file(str(outside), [project])
+
+
+def test_message_file_inside_allowed_root_is_read(tmp_path: Path) -> None:
+    auto_commit = _load("auto_commit")
+    message = tmp_path / "msg.txt"
+    message.write_text("feat: yes\n", encoding="utf-8")
+
+    assert auto_commit._read_message_file(str(message), [tmp_path]) == "feat: yes"
