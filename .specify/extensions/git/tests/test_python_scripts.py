@@ -225,3 +225,23 @@ def test_message_file_inside_allowed_root_is_read(tmp_path: Path) -> None:
     message.write_text("feat: yes\n", encoding="utf-8")
 
     assert auto_commit._read_message_file(str(message), [tmp_path]) == "feat: yes"
+
+
+def test_relative_message_file_resolves_against_allowed_root(tmp_path: Path) -> None:
+    auto_commit = _load("auto_commit")
+    (tmp_path / "msg.txt").write_text("feat: relative\n", encoding="utf-8")
+
+    assert auto_commit._read_message_file("msg.txt", [tmp_path]) == "feat: relative"
+
+
+def test_message_file_traversal_and_symlink_escape_are_rejected(tmp_path: Path) -> None:
+    auto_commit = _load("auto_commit")
+    project = tmp_path / "project"
+    project.mkdir()
+    outside = tmp_path / "outside.txt"
+    outside.write_text("feat: nope\n", encoding="utf-8")
+    (project / "link.txt").symlink_to(outside)
+
+    for path_arg in ("../outside.txt", str(project / "link.txt")):
+        with pytest.raises(auto_commit._ScriptError, match="must be inside the project"):
+            auto_commit._read_message_file(path_arg, [project])
