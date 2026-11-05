@@ -7,7 +7,7 @@ All types live in `src/Polifemo.Platform/TokenSave/` unless noted. Records are i
 | `SnapshotReadOptions` | `LockTimeout` (TimeSpan, default 5 s), `VerifySource` (bool, default true) | `MaxRetries` is the constant 3 from the approved spec, not an option. |
 | `ResolvedDatabase` (existing, extended) | `DatabasePath`, `Resolution` (`branch-meta` or `default`), `MetadataAbsent` (bool) | `default` only when metadata is absent and exactly `tokensave.db` exists (R8). |
 | `GraphSnapshot` | `Revision` (GraphRevision), `Graph` (TokenSaveGraph), `DocAssociations` (list), `Integrity` (IntegrityReport), `Provenance` (TokenSaveProvenance) | Constructed only after every check, read and verification succeeded; has no date/time member (R6). |
-| `GraphRevision` | `Value` (string hash) | `Hash("gr/v1", indexVersion, sorted (path, contentHash)…)` (R4). Equal for equal commit states. |
+| `GraphRevision` | `Value` (string hash) | `Hashing.Hash("gr/v1", …)` over the canonical graph rows (files, symbols, edges, unresolved, ambiguous, doc associations); `SourceFingerprint` (`"sf/v1"`) over `files` (R4). Equal for equal commit states. |
 | `TokenSaveGraph` (existing) | `Symbols`, `Edges`, `Unresolved`, `Ambiguous`, `Files`, `DatabasePath` | Row container; `LoadAsync` removed. |
 | `FileRow` (existing) | `Path`, `ContentHash` (sha256 hex), `Kind` (`code`/`artifact`), `NodeCount` | No `modified_at`/`indexed_at`. |
 | `SymbolRow` (existing) | `Id`, `Kind`, `Name`, `QualifiedName`, `FilePath`, `StartLine`, `EndLine` (0-based, provenance only), `Signature`, `Docstring`, `ParentId` | `Id` and lines are never used as identity by consumers (Constitution IV). |

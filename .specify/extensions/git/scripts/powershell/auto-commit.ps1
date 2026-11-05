@@ -12,6 +12,14 @@
 # message: it reads the message from a file instead of a shell argument,
 # so message content (which may contain quotes, $(...), backticks, etc.)
 # is never interpolated into a shell command line.
+# The caller owns the message file: this script reads it but never deletes it.
+# The caller removes its temp file after the call (e.g. in a finally block).
+# If the file lives inside the project it is kept out of staging and out of
+# the change check.
+#
+# SPECIFY_INIT_DIR, when set, is the explicit project root. It must be an
+# existing directory containing .specify or a Git worktree; otherwise the
+# script fails without committing anything.
 param(
     [Parameter(Position = 0, Mandatory = $true)]
     [string]$EventName,
@@ -26,22 +34,33 @@ param(
 )
 $ErrorActionPreference = 'Stop'
 
+# The message file belongs to the caller. Read it here (before any directory
+# change, so a relative path resolves against the caller's cwd) but never delete it.
+$messageFilePath = ''
 if ($MessageFile) {
-    if (-not (Test-Path $MessageFile -PathType Leaf)) {
+    if (-not (Test-Path -LiteralPath $MessageFile -PathType Leaf)) {
         Write-Warning "[specify] Error: message file '$MessageFile' not found"
         exit 1
     }
-    $GeneratedMessage = (Get-Content -Path $MessageFile -Raw)
+    $messageFilePath = (Resolve-Path -LiteralPath $MessageFile).ProviderPath
+    $GeneratedMessage = (Get-Content -LiteralPath $MessageFile -Raw)
     if ($null -ne $GeneratedMessage) {
         $GeneratedMessage = $GeneratedMessage.TrimEnd("`r", "`n")
     }
-    # The message file is a transport-only artifact: its content is now
-    # captured above, so remove it immediately. Otherwise, if it was written
-    # inside the worktree, it would be picked up as an untracked change by
-    # both the "any changes?" check below and by `git add .`, polluting the
-    # commit or defeating the no-changes short-circuit even when nothing
-    # else changed.
-    Remove-Item -Path $MessageFile -Force -ErrorAction SilentlyContinue
+}
+
+# Probe a directory for a Git worktree. Relaxes ErrorActionPreference so git
+# stderr output does not become a terminating error.
+function Test-GitWorktree {
+    param([string]$Dir)
+    $savedEAP = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try {
+        git -C $Dir rev-parse --is-inside-work-tree 2>$null | Out-Null
+        return ($LASTEXITCODE -eq 0)
+    } finally {
+        $ErrorActionPreference = $savedEAP
+    }
 }
 
 function Find-ProjectRoot {
@@ -59,26 +78,35 @@ function Find-ProjectRoot {
     }
 }
 
-$repoRoot = Find-ProjectRoot -StartDir $PSScriptRoot
-if (-not $repoRoot) { $repoRoot = Get-Location }
+$hasGitCommand = [bool](Get-Command git -ErrorAction SilentlyContinue)
+
+# Resolve the project root before any configuration is read or any git command runs.
+if ($env:SPECIFY_INIT_DIR) {
+    $initDir = $env:SPECIFY_INIT_DIR
+    if (-not (Test-Path -LiteralPath $initDir -PathType Container)) {
+        Write-Warning "[specify] Error: SPECIFY_INIT_DIR '$initDir' is not an existing directory; skipped auto-commit"
+        exit 1
+    }
+    $repoRoot = (Resolve-Path -LiteralPath $initDir).ProviderPath
+    $isSpecifyProject = Test-Path -LiteralPath (Join-Path $repoRoot '.specify') -PathType Container
+    $isWorktree = $hasGitCommand -and (Test-GitWorktree -Dir $repoRoot)
+    if (-not ($isSpecifyProject -or $isWorktree)) {
+        Write-Warning "[specify] Error: SPECIFY_INIT_DIR '$initDir' is neither a Spec Kit project (.specify) nor a Git worktree; skipped auto-commit"
+        exit 1
+    }
+} else {
+    $repoRoot = Find-ProjectRoot -StartDir $PSScriptRoot
+    if (-not $repoRoot) { $repoRoot = Get-Location }
+}
 Set-Location $repoRoot
 
 # Check if git is available
-if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
+if (-not $hasGitCommand) {
     Write-Warning "[specify] Warning: Git not found; skipped auto-commit"
     exit 0
 }
 
-# Temporarily relax ErrorActionPreference so git stderr warnings
-# (e.g. CRLF notices on Windows) do not become terminating errors.
-$savedEAP = $ErrorActionPreference
-$ErrorActionPreference = 'Continue'
-try {
-    git rev-parse --is-inside-work-tree 2>$null | Out-Null
-    $isRepo = $LASTEXITCODE -eq 0
-} finally {
-    $ErrorActionPreference = $savedEAP
-}
+$isRepo = Test-GitWorktree -Dir $repoRoot
 if (-not $isRepo) {
     Write-Warning "[specify] Warning: Not a Git repository; skipped auto-commit"
     exit 0
@@ -173,6 +201,17 @@ if (-not $enabled) {
     exit 0
 }
 
+# Path of the message file relative to the project root, when it lives inside
+# the project. It is excluded from staging and from the change check.
+$excludeRel = ''
+if ($messageFilePath) {
+    $rootFull = ((Get-Item -LiteralPath $repoRoot).FullName).TrimEnd('\', '/')
+    $prefix = $rootFull + [System.IO.Path]::DirectorySeparatorChar
+    if ($messageFilePath.StartsWith($prefix, [System.StringComparison]::OrdinalIgnoreCase)) {
+        $excludeRel = $messageFilePath.Substring($prefix.Length) -replace '\\', '/'
+    }
+}
+
 # Check if there are changes to commit
 # Relax ErrorActionPreference so CRLF warnings on stderr do not terminate.
 $savedEAP = $ErrorActionPreference
@@ -180,12 +219,13 @@ $ErrorActionPreference = 'Continue'
 try {
     git diff --quiet HEAD 2>$null; $d1 = $LASTEXITCODE
     git diff --cached --quiet 2>$null; $d2 = $LASTEXITCODE
-    $untracked = git ls-files --others --exclude-standard 2>$null
+    $untracked = @(git -c core.quotepath=off ls-files --others --exclude-standard 2>$null |
+        Where-Object { $_ -and ($_ -ne $excludeRel) })
 } finally {
     $ErrorActionPreference = $savedEAP
 }
 
-if ($d1 -eq 0 -and $d2 -eq 0 -and -not $untracked) {
+if ($d1 -eq 0 -and $d2 -eq 0 -and $untracked.Count -eq 0) {
     Write-Host "[specify] No changes to commit after $EventName" -ForegroundColor DarkGray
     exit 0
 }
@@ -216,7 +256,11 @@ if (-not $commitMsg) {
 $savedEAP = $ErrorActionPreference
 $ErrorActionPreference = 'Continue'
 try {
-    $out = git add . 2>&1 | Out-String
+    if ($excludeRel) {
+        $out = git add -- . ":(exclude,literal)$excludeRel" 2>&1 | Out-String
+    } else {
+        $out = git add -- . 2>&1 | Out-String
+    }
     if ($LASTEXITCODE -ne 0) { throw "git add failed: $out" }
     $out = git commit -q -m $commitMsg 2>&1 | Out-String
     if ($LASTEXITCODE -ne 0) { throw "git commit failed: $out" }

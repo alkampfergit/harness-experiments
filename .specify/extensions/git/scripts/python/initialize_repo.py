@@ -26,6 +26,13 @@ def _find_project_root(start: Path) -> Path | None:
         current = current.parent
 
 
+def _strip_quotes(value: str) -> str:
+    """Remove one leading quote and any trailing quotes (mirrors the bash sed pipeline)."""
+    if value[:1] in ("'", '"'):
+        value = value[1:]
+    return value.rstrip("\"'")
+
+
 def _read_commit_message(repo_root: Path) -> str:
     """Read init_commit_message from git-config.yml, mirroring the bash sed pipeline."""
     default = "[Spec Kit] Initial commit"
@@ -39,8 +46,7 @@ def _read_commit_message(repo_root: Path) -> str:
     for line in lines:
         if line.startswith("init_commit_message:"):
             value = re.sub(r"^init_commit_message:\s*", "", line)
-            value = re.sub(r"^[\"']", "", value)
-            value = re.sub(r"[\"']*$", "", value)
+            value = _strip_quotes(value)
             if value:
                 return value
     return default

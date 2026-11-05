@@ -4,9 +4,10 @@
 # branch validation and detection logic.
 
 function Test-HasGit {
-    param([string]$RepoRoot = (Get-Location))
+    # Probes Git from $RepoRoot itself (not the caller's cwd and not via a local
+    # .git marker), so a project nested inside a parent repository is detected.
+    param([string]$RepoRoot = $PWD.Path)
     try {
-        if (-not (Test-Path (Join-Path $RepoRoot '.git'))) { return $false }
         if (-not (Get-Command git -ErrorAction SilentlyContinue)) { return $false }
         git -C $RepoRoot rev-parse --is-inside-work-tree 2>$null | Out-Null
         return ($LASTEXITCODE -eq 0)

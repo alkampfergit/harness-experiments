@@ -28,10 +28,10 @@ public sealed class TokenSaveAdapter
 4. `BEGIN` and a first `SELECT`: from here the connection sees one committed state (WAL snapshot, or SHARED lock in rollback mode).
 5. Compatibility check (every mismatch reported), then all rows, inside that transaction. `ROLLBACK`.
 6. Compare the file snapshot of step 2 with a new one. Different → a sync committed during the read → retry from step 1.
-7. Verify every `files.path` on disk has SHA-256 == `content_hash` (unless `VerifySource = false`). Mismatch → retry from step 1.
+7. Verify the source as research R5 defines it: stat every `files.path`, hash every file and compare with `content_hash`, then stat every file again. A missing file, a hash mismatch or any stat change → retry from step 1 (unless `VerifySource = false`).
 8. After 3 retries: `TS_REVISION_UNSTABLE` (step 6 kept failing) or `TS_SOURCE_MISMATCH` (step 7 kept failing). Otherwise return the `GraphSnapshot` with `Provenance.Attempts`.
 
-Guarantee: every row of a snapshot comes from one SQLite commit state and matches the verified source bytes. Limits: a running sync's uncommitted work is invisible; files TokenSave skipped are not verified; `.tokensave/` must allow SQLite to create empty `-wal`/`-shm` sidecars.
+Guarantee: every row of a snapshot comes from one SQLite commit state, and the graph was paired with source bytes that matched it at the end of one verification pass, with no stat change during that pass. Limits: a running sync's uncommitted work is invisible; a worktree edit reverted within one pass with identical size and mtime is not detected; files TokenSave skipped are not verified; `.tokensave/` must allow SQLite to create empty `-wal`/`-shm` sidecars (FR-004 as reconciled in spec.md).
 
 ## Error codes added by this feature
 

@@ -5,17 +5,31 @@ Automatically commit changes after a Spec Kit command completes.
 Python port of ``auto-commit.sh`` / ``auto-commit.ps1``.
 Checks per-command config keys in git-config.yml before committing.
 
-Usage: auto_commit.py <event_name>
+Usage: auto_commit.py <event_name> [generated_message]
+       auto_commit.py <event_name> --message-file <path>
   e.g.: auto_commit.py after_specify
+  e.g.: auto_commit.py after_specify --message-file /tmp/commit-msg.txt  (commit_style: conventional)
+
+The message file is caller-owned: it is read but never deleted here.
+SPECIFY_INIT_DIR, when set, selects the project root and is validated before
+configuration is read or Git is run.
 """
 
 from __future__ import annotations
 
+import os
 import re
 import shutil
 import subprocess
 import sys
 from pathlib import Path
+
+_QUOTES = "\"'"
+_COMMIT_STYLES = ("fixed", "conventional")
+
+
+class _ScriptError(Exception):
+    """A fatal input or environment problem; the message is printed and the script exits 1."""
 
 
 def _find_project_root(start: Path) -> Path | None:
@@ -28,8 +42,58 @@ def _find_project_root(start: Path) -> Path | None:
         current = current.parent
 
 
-def _value_after_colon(line: str) -> str:
-    return re.sub(r"^[^:]*:\s*", "", line)
+def _resolve_init_dir(value: str) -> Path:
+    """Validate an explicit SPECIFY_INIT_DIR (mirrors core resolve_specify_init_dir)."""
+    candidate = Path(value).resolve()
+    if not candidate.is_dir():
+        raise _ScriptError(
+            f"ERROR: SPECIFY_INIT_DIR does not point to an existing directory: {value}"
+        )
+    if not (candidate / ".specify").is_dir():
+        raise _ScriptError(
+            "ERROR: SPECIFY_INIT_DIR is not a Spec Kit project (no .specify/ directory): "
+            f"{candidate}"
+        )
+    return candidate
+
+
+def _resolve_repo_root(script_dir: Path) -> Path:
+    init_dir = os.environ.get("SPECIFY_INIT_DIR", "")
+    if init_dir:
+        return _resolve_init_dir(init_dir)
+    return _find_project_root(script_dir) or Path.cwd()
+
+
+def _read_message_file(path_arg: str) -> str:
+    if not path_arg:
+        raise _ScriptError("[specify] Error: --message-file requires a path argument")
+    path = Path(path_arg)
+    if not path.is_file():
+        raise _ScriptError(f"[specify] Error: message file '{path_arg}' not found")
+    try:
+        text = path.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError) as exc:
+        raise _ScriptError(
+            f"[specify] Error: cannot read message file '{path_arg}': {exc}"
+        ) from exc
+    return text.rstrip("\r\n")
+
+
+def _parse_message_args(args: list[str]) -> str:
+    """Return the generated commit message from --message-file or a positional argument.
+
+    The last message source wins, as in the bash twin.
+    """
+    generated = ""
+    i = 0
+    while i < len(args):
+        if args[i] == "--message-file":
+            generated = _read_message_file(args[i + 1] if i + 1 < len(args) else "")
+            i += 2
+        else:
+            generated = args[i]
+            i += 1
+    return generated
 
 
 def _strip_quotes(value: str) -> str:
@@ -42,76 +106,145 @@ def _strip_quotes(value: str) -> str:
     stripping, so trim here too to keep all three script variants in parity.
     """
     value = value.strip()
-    value = re.sub(r"^[\"']", "", value)
-    return re.sub(r"[\"']*$", "", value)
+    if value[:1] in ("'", '"'):
+        value = value[1:]
+    return value.rstrip(_QUOTES)
 
 
-def _parse_auto_commit_config(
-    config_file: Path, event_name: str
-) -> tuple[bool, str]:
-    """Parse the auto_commit section for this event, mirroring the bash line parser.
+def _value_after_colon(line: str) -> str:
+    return re.sub(r"^[^:]*:\s*", "", line)
 
-    Returns (enabled, commit_msg). Looks for auto_commit.<event_name>.enabled
-    and .message, with auto_commit.default as fallback.
+
+def _lower_scalar(line: str) -> str:
+    return re.sub(r"\s", "", _value_after_colon(line)).lower()
+
+
+def _config_records(content: str) -> list[str]:
+    """Return config lines without newlines.
+
+    A final record without a trailing newline is dropped, matching the bash
+    ``while read`` loop this port mirrors.
     """
-    enabled = False
-    commit_msg = ""
-    default_enabled = False
-    in_auto_commit = False
-    in_event = False
-
-    try:
-        content = config_file.read_text(encoding="utf-8")
-    except (OSError, UnicodeDecodeError):
-        # Unreadable or non-UTF-8 config is treated like a missing one:
-        # auto-commit stays disabled instead of crashing with a traceback.
-        return False, ""
+    lines: list[str] = []
     for record in content.splitlines(keepends=True):
         if not record.endswith("\n"):
             break
-        line = record[:-1]
+        lines.append(record[:-1])
+    return lines
+
+
+def _read_commit_style(lines: list[str]) -> str:
+    """Read the top-level commit_style key (fixed | conventional); default fixed."""
+    for line in lines:
+        if not line.startswith("commit_style:"):
+            continue
+        value = _strip_quotes(re.sub(r"\s#.*$", "", _value_after_colon(line))).lower()
+        if not value:
+            return "fixed"
+        if value in _COMMIT_STYLES:
+            return value
+        print(
+            f"[specify] Warning: unknown commit_style '{value}' in git-config.yml "
+            "(expected 'fixed' or 'conventional'); defaulting to 'fixed'",
+            file=sys.stderr,
+        )
+        return "fixed"
+    return "fixed"
+
+
+def _auto_commit_block(lines: list[str]) -> list[str]:
+    """Return the lines of the auto_commit: section, up to the next top-level key."""
+    block: list[str] = []
+    in_section = False
+    for line in lines:
         if line.startswith("auto_commit:"):
-            in_auto_commit = True
-            in_event = False
+            in_section = True
             continue
-
-        # Exit auto_commit section on next top-level key
-        if in_auto_commit and re.match(r"^[a-z]", line):
+        if in_section and re.match(r"^[a-z]", line):
             break
+        if in_section:
+            block.append(line)
+    return block
 
-        if not in_auto_commit:
-            continue
 
-        if re.match(r"^\s+default:\s", line):
-            value = re.sub(r"\s", "", _value_after_colon(line)).lower()
-            if value == "true":
-                default_enabled = True
+def _parse_event_settings(block: list[str], event_name: str) -> tuple[bool, str, bool]:
+    """Return (enabled, message, default_enabled) for one event in the auto_commit block."""
+    enabled = False
+    commit_msg = ""
+    default_enabled = False
+    in_event = False
+    event_header = re.compile(rf"^\s+{re.escape(event_name)}:")
 
-        if re.match(rf"^\s+{re.escape(event_name)}:", line):
+    for line in block:
+        if re.match(r"^\s+default:\s", line) and _lower_scalar(line) == "true":
+            default_enabled = True
+
+        if event_header.match(line):
             in_event = True
             continue
+        if not in_event:
+            continue
 
-        if in_event:
-            # Exit on next sibling key (same indent level as event name)
-            if re.match(r"^\s{2}[a-z]", line) and not re.match(r"^\s{4}", line):
-                in_event = False
-                continue
-            if re.search(r"\s+enabled:", line):
-                value = re.sub(r"\s", "", _value_after_colon(line)).lower()
-                if value == "true":
-                    enabled = True
-                elif value == "false":
-                    enabled = False
-            if re.search(r"\s+message:", line):
-                commit_msg = _strip_quotes(_value_after_colon(line))
+        # Exit on the next sibling key (two-space indent, not four or more).
+        if re.match(r"^\s{2}[a-z]", line) and not re.match(r"^\s{4}", line):
+            in_event = False
+            continue
+        if re.search(r"\senabled:", line):
+            value = _lower_scalar(line)
+            if value in ("true", "false"):
+                enabled = value == "true"
+        if re.search(r"\smessage:", line):
+            commit_msg = _strip_quotes(_value_after_colon(line))
 
-    # If event-specific key not found, use default — but only if the event
-    # section didn't exist at all (an explicit false must win).
-    if not enabled and default_enabled:
-        if not re.search(rf"^\s*{re.escape(event_name)}:", content, re.MULTILINE):
-            enabled = True
+    return enabled, commit_msg, default_enabled
 
+
+def _parse_auto_commit_config(content: str, event_name: str) -> tuple[bool, str]:
+    """Return (enabled, commit_msg) for event_name, mirroring the bash line parser.
+
+    Falls back to auto_commit.default only when the event has no key at all,
+    so an explicit false always wins.
+    """
+    lines = _config_records(content)
+    enabled, commit_msg, default_enabled = _parse_event_settings(
+        _auto_commit_block(lines), event_name
+    )
+    if (
+        not enabled
+        and default_enabled
+        and not re.search(rf"^\s*{re.escape(event_name)}:", content, re.MULTILINE)
+    ):
+        enabled = True
     return enabled, commit_msg
+
+
+def _git(repo_root: Path, *args: str) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        ["git", *args], cwd=repo_root, capture_output=True, text=True
+    )
+
+
+def _has_pending_changes(repo_root: Path) -> bool:
+    untracked = _git(repo_root, "ls-files", "--others", "--exclude-standard").stdout.strip()
+    clean = (
+        _git(repo_root, "diff", "--quiet", "HEAD").returncode == 0
+        and _git(repo_root, "diff", "--cached", "--quiet").returncode == 0
+    )
+    return not clean or bool(untracked)
+
+
+def _run_commit(repo_root: Path, commit_msg: str) -> int:
+    steps = [
+        (["add", "."], "git add"),
+        (["commit", "-q", "-m", commit_msg], "git commit"),
+    ]
+    for args, label in steps:
+        result = _git(repo_root, *args)
+        if result.returncode != 0:
+            output = (result.stdout + result.stderr).strip()
+            print(f"[specify] Error: {label} failed: {output}", file=sys.stderr)
+            return 1
+    return 0
 
 
 def main(argv: list[str]) -> int:
@@ -120,20 +253,18 @@ def main(argv: list[str]) -> int:
         print(f"Usage: {Path(sys.argv[0]).name} <event_name>", file=sys.stderr)
         return 1
 
-    script_dir = Path(__file__).resolve().parent
-    repo_root = _find_project_root(script_dir) or Path.cwd()
+    try:
+        generated_message = _parse_message_args(argv[1:])
+        repo_root = _resolve_repo_root(Path(__file__).resolve().parent)
+    except _ScriptError as exc:
+        print(exc, file=sys.stderr)
+        return 1
 
     if shutil.which("git") is None:
         print("[specify] Warning: Git not found; skipped auto-commit", file=sys.stderr)
         return 0
 
-    probe = subprocess.run(
-        ["git", "rev-parse", "--is-inside-work-tree"],
-        cwd=repo_root,
-        capture_output=True,
-        text=True,
-    )
-    if probe.returncode != 0:
+    if _git(repo_root, "rev-parse", "--is-inside-work-tree").returncode != 0:
         print(
             "[specify] Warning: Not a Git repository; skipped auto-commit",
             file=sys.stderr,
@@ -144,29 +275,33 @@ def main(argv: list[str]) -> int:
     if not config_file.is_file():
         # No config file — auto-commit disabled by default
         return 0
+    try:
+        content = config_file.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError):
+        # Unreadable or non-UTF-8 config is treated like a missing one.
+        return 0
 
-    enabled, commit_msg = _parse_auto_commit_config(config_file, event_name)
+    commit_style = _read_commit_style(_config_records(content))
+    enabled, commit_msg = _parse_auto_commit_config(content, event_name)
     if not enabled:
         return 0
 
-    # Check if there are changes to commit
-    def _quiet(*args: str) -> bool:
-        return (
-            subprocess.run(
-                ["git", *args], cwd=repo_root, capture_output=True, text=True
-            ).returncode
-            == 0
-        )
-
-    untracked = subprocess.run(
-        ["git", "ls-files", "--others", "--exclude-standard"],
-        cwd=repo_root,
-        capture_output=True,
-        text=True,
-    ).stdout.strip()
-    if _quiet("diff", "--quiet", "HEAD") and _quiet("diff", "--cached", "--quiet") and not untracked:
+    if not _has_pending_changes(repo_root):
         print(f"[specify] No changes to commit after {event_name}", file=sys.stderr)
         return 0
+
+    # In conventional mode the message must come from the caller; never fall
+    # back to the configured fixed message.
+    if commit_style == "conventional":
+        if not generated_message:
+            print(
+                "[specify] Error: commit_style is 'conventional' but no generated commit "
+                "message was supplied; aborting auto-commit (pass --message-file <path>, "
+                "or a raw message as arg 2, or set commit_style: fixed)",
+                file=sys.stderr,
+            )
+            return 1
+        commit_msg = generated_message
 
     # Derive a human-readable command name from the event
     # e.g., after_specify -> specify, before_plan -> plan
@@ -176,16 +311,8 @@ def main(argv: list[str]) -> int:
     if not commit_msg:
         commit_msg = f"[Spec Kit] Auto-commit {phase} {command_name}"
 
-    steps = [
-        (["git", "add", "."], "git add"),
-        (["git", "commit", "-q", "-m", commit_msg], "git commit"),
-    ]
-    for cmd, label in steps:
-        result = subprocess.run(cmd, cwd=repo_root, capture_output=True, text=True)
-        if result.returncode != 0:
-            output = (result.stdout + result.stderr).strip()
-            print(f"[specify] Error: {label} failed: {output}", file=sys.stderr)
-            return 1
+    if _run_commit(repo_root, commit_msg) != 0:
+        return 1
 
     print(f"[OK] Changes committed {phase} {command_name}", file=sys.stderr)
     return 0

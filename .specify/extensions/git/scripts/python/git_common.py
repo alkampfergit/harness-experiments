@@ -15,11 +15,13 @@ from pathlib import Path
 
 
 def has_git(repo_root: Path | None = None) -> bool:
-    """Check if we have git available at the repo root."""
+    """Check whether Git reports ``repo_root`` as inside a work tree.
+
+    The Git query is authoritative: a Spec Kit project may sit in a
+    subdirectory of a worktree whose ``.git`` lives in an ancestor, so a
+    local ``.git`` marker is not required.
+    """
     root = Path(repo_root) if repo_root is not None else Path.cwd()
-    git_marker = root / ".git"
-    if not (git_marker.is_dir() or git_marker.is_file()):
-        return False
     if shutil.which("git") is None:
         return False
     result = subprocess.run(
@@ -61,12 +63,13 @@ def check_feature_branch(raw: str, has_git_repo: bool) -> bool:
 
     # Accept sequential prefix (3+ digits) but exclude malformed timestamps:
     # 7-or-8 digit date + 6-digit time with no trailing slug.
+    # re.ASCII keeps \d limited to 0-9, matching the bash/PowerShell twins.
     is_sequential = bool(
-        re.match(r"^[0-9]{3,}-", feature_segment)
-        and not re.match(r"^[0-9]{7}-[0-9]{6}-", feature_segment)
-        and not re.fullmatch(r"[0-9]{7,8}-[0-9]{6}", feature_segment)
+        re.match(r"^\d{3,}-", feature_segment, re.ASCII)
+        and not re.match(r"^\d{7}-\d{6}-", feature_segment, re.ASCII)
+        and not re.fullmatch(r"\d{7,8}-\d{6}", feature_segment, re.ASCII)
     )
-    is_timestamp = bool(re.match(r"^[0-9]{8}-[0-9]{6}-", feature_segment))
+    is_timestamp = bool(re.match(r"^\d{8}-\d{6}-", feature_segment, re.ASCII))
 
     if not is_sequential and not is_timestamp:
         print(f"ERROR: Not on a feature branch. Current branch: {raw}", file=sys.stderr)
