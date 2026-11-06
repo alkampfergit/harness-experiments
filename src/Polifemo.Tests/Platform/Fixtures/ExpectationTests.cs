@@ -37,10 +37,10 @@ public sealed class ExpectationTests : IDisposable
     {
         RequireTokenSave.Ensure();
         var fixture = await FixtureStates.CreateAsync(_ws, state, index: true);
-        var graph = await TokenSaveGraph.LoadAsync(fixture.Worktree, ct: TestContext.Current.CancellationToken);
+        var snapshot = await new TokenSaveAdapter().ReadAsync(fixture.Worktree, ct: TestContext.Current.CancellationToken);
         var path = ExpectationRecord.PathFor(state);
         var previous = File.Exists(path) ? ExpectationRecord.Load(state) : null;
-        var observed = ExpectationObserver.Observe(graph, fixture.Worktree, state, fixture.Commit, previous);
+        var observed = ExpectationObserver.Observe(snapshot, fixture.Worktree, state, fixture.Commit, previous);
 
         if (Update) File.WriteAllText(path, observed.ToJson());
         var expected = ExpectationRecord.Load(state);

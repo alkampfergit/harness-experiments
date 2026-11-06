@@ -11,6 +11,7 @@ public class ExitCodeTests
         (new TokenSaveCompatibilityException([new Mismatch("TS_TABLE_MISSING", "nodes")]), 1),
         (new FixturePreparationException("PREP_UNKNOWN_COMMIT", "x"), 1),
         (new ActiveDatabaseResolutionException("TS_DB_MISSING", "x"), 3),
+        (new TokenSaveSnapshotException("TS_DB_LOCKED", "x", 1), 1),
         (new SearchStoreException("ES_AUTH_FAILED", "x"), 3),
         (new SearchStoreException("ES_UNREACHABLE", "x"), 3),
     ];

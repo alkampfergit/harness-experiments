@@ -124,49 +124,24 @@ function Get-HighestNumberFromBranches {
     return 0
 }
 
-function Get-HighestNumberFromRemoteRefs {
-    param([string]$ScopePrefix = '')
-
-    [long]$highest = 0
-    try {
-        $remotes = git remote 2>$null
-        if ($remotes) {
-            foreach ($remote in $remotes) {
-                $env:GIT_TERMINAL_PROMPT = '0'
-                $refs = git ls-remote --heads $remote 2>$null
-                $env:GIT_TERMINAL_PROMPT = $null
-                if ($LASTEXITCODE -eq 0 -and $refs) {
-                    $refNames = $refs | ForEach-Object {
-                        if ($_ -match 'refs/heads/(.+)$') { $matches[1] }
-                    } | Where-Object { $_ }
-                    $remoteHighest = Get-HighestNumberFromNames -Names $refNames -ScopePrefix $ScopePrefix
-                    if ($remoteHighest -gt $highest) { $highest = $remoteHighest }
-                }
-            }
-        }
-    } catch {
-        Write-Verbose "Could not query remote refs: $_"
-    }
-    return $highest
-}
-
 function Get-NextBranchNumber {
+    # Numbering uses local refs only (including remote-tracking refs already
+    # present). Remotes are contacted only when -FetchRemotes is passed, which the
+    # caller does only when git-config.yml sets fetch_remotes: true.
     param(
         [string]$SpecsDir,
-        [switch]$SkipFetch,
+        [switch]$FetchRemotes,
         [string]$ScopePrefix = ''
     )
 
-    if ($SkipFetch) {
-        $highestBranch = Get-HighestNumberFromBranches -ScopePrefix $ScopePrefix
-        $highestRemote = Get-HighestNumberFromRemoteRefs -ScopePrefix $ScopePrefix
-        $highestBranch = [Math]::Max($highestBranch, $highestRemote)
-    } else {
+    if ($FetchRemotes) {
         try {
             git fetch --all --prune 2>$null | Out-Null
-        } catch { }
-        $highestBranch = Get-HighestNumberFromBranches -ScopePrefix $ScopePrefix
+        } catch {
+            Write-Verbose "Could not fetch remotes: $_"
+        }
     }
+    $highestBranch = Get-HighestNumberFromBranches -ScopePrefix $ScopePrefix
 
     $highestSpec = Get-HighestNumberFromSpecs -SpecsDir $SpecsDir
     $maxNum = [Math]::Max($highestBranch, $highestSpec)
@@ -244,21 +219,19 @@ if (Get-Command Get-RepoRoot -ErrorAction SilentlyContinue) {
     throw "Could not determine repository root."
 }
 
-# Check if git is available
-if (Get-Command Test-HasGit -ErrorAction SilentlyContinue) {
-    # Call without parameters for compatibility with core common.ps1 (no -RepoRoot param)
-    # and git-common.ps1 (has -RepoRoot param with default).
-    $hasGit = Test-HasGit
-} else {
+Set-Location $repoRoot
+
+# Probe Git from the resolved root, not the caller's cwd and not via a local
+# .git marker, so a Spec Kit project nested in a parent repository is detected.
+$hasGit = $false
+if (Get-Command git -ErrorAction SilentlyContinue) {
     try {
         git -C $repoRoot rev-parse --is-inside-work-tree 2>$null | Out-Null
         $hasGit = ($LASTEXITCODE -eq 0)
     } catch {
-        $hasGit = $false
+        Write-Verbose "Could not probe Git repository at '$repoRoot': $_"
     }
 }
-
-Set-Location $repoRoot
 
 $specsDir = Join-Path $repoRoot 'specs'
 $configFile = Join-Path $repoRoot ".specify/extensions/git/git-config.yml"
@@ -289,16 +262,23 @@ function ConvertTo-BranchToken {
     return $Fallback
 }
 
+function Get-GitUserSetting {
+    param([string]$Name)
+
+    if (-not (Get-Command git -ErrorAction SilentlyContinue)) { return '' }
+    try {
+        return (git config $Name 2>$null | Out-String).Trim()
+    } catch {
+        Write-Verbose "Could not read git config '$Name': $_"
+        return ''
+    }
+}
+
 function Get-GitAuthorToken {
-    $author = ''
-    if (Get-Command git -ErrorAction SilentlyContinue) {
-        try { $author = (git config user.name 2>$null | Out-String).Trim() } catch {}
-        if (-not $author) {
-            try {
-                $email = (git config user.email 2>$null | Out-String).Trim()
-                if ($email) { $author = ($email -split '@')[0] }
-            } catch {}
-        }
+    $author = Get-GitUserSetting -Name 'user.name'
+    if (-not $author) {
+        $email = Get-GitUserSetting -Name 'user.email'
+        if ($email) { $author = ($email -split '@')[0] }
     }
     if (-not $author) { $author = if ($env:USER) { $env:USER } elseif ($env:USERNAME) { $env:USERNAME } else { 'unknown' } }
     return ConvertTo-BranchToken -Value $author -Fallback 'unknown'
@@ -400,6 +380,8 @@ $authorToken = Get-GitAuthorToken
 $appToken = Get-AppToken
 $branchTemplate = Resolve-BranchTemplate
 Assert-BranchTemplateValid -Template $branchTemplate
+# Remote fetching is opt-in (fetch_remotes: true in git-config.yml); default is local refs only.
+$fetchRemotes = (Read-GitConfigValue -Key 'fetch_remotes').ToLower() -eq 'true'
 
 function Get-BranchName {
     param([string]$Description)
@@ -476,11 +458,12 @@ if ($env:GIT_BRANCH_NAME) {
         # `[ -z "$BRANCH_NUMBER" ]` check.
         if (-not $PSBoundParameters.ContainsKey('Number')) {
             if ($DryRun -and $hasGit) {
-                $Number = Get-NextBranchNumber -SpecsDir $specsDir -SkipFetch -ScopePrefix $branchScopePrefix
+                # Dry runs never contact remotes.
+                $Number = Get-NextBranchNumber -SpecsDir $specsDir -ScopePrefix $branchScopePrefix
             } elseif ($DryRun) {
                 $Number = (Get-HighestNumberFromSpecs -SpecsDir $specsDir) + 1
             } elseif ($hasGit) {
-                $Number = Get-NextBranchNumber -SpecsDir $specsDir -ScopePrefix $branchScopePrefix
+                $Number = Get-NextBranchNumber -SpecsDir $specsDir -FetchRemotes:$fetchRemotes -ScopePrefix $branchScopePrefix
             } else {
                 $Number = (Get-HighestNumberFromSpecs -SpecsDir $specsDir) + 1
             }
@@ -523,7 +506,11 @@ if (-not $DryRun) {
 
         if (-not $branchCreated) {
             $currentBranch = ''
-            try { $currentBranch = (git rev-parse --abbrev-ref HEAD 2>$null).Trim() } catch {}
+            try {
+                $currentBranch = (git rev-parse --abbrev-ref HEAD 2>$null).Trim()
+            } catch {
+                Write-Verbose "Could not read current branch: $_"
+            }
             $existingBranch = git branch --list $branchName 2>$null
             if ($existingBranch) {
                 if ($AllowExistingBranch) {

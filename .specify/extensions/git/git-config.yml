@@ -1,6 +1,10 @@
 # Git Branching Workflow Extension Configuration
 # Copied to .specify/extensions/git/git-config.yml on install
 
+# Fetch and prune remote-tracking refs before choosing the next sequential number.
+# Off by default: branch creation then uses local refs only and contacts no remote.
+fetch_remotes: false
+
 # Branch numbering strategy: "sequential" (001, 002, ...) or "timestamp" (YYYYMMDD-HHMMSS)
 branch_numbering: sequential
 

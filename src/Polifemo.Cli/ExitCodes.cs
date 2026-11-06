@@ -16,6 +16,7 @@ public static class ExitCodes
         OperationCanceledException => Cancelled,
         UsageException => InvalidArguments,
         TokenSaveCompatibilityException => CheckFailed,
+        TokenSaveSnapshotException => CheckFailed,
         EmbeddingProfileMismatchException => CheckFailed,
         PrivacyPolicyException => CheckFailed,
         ScopeException => CheckFailed,

@@ -41,3 +41,14 @@ public sealed class PrivacyPolicyException(string code, string message)
 /// <summary>Scope or snapshot resolution failed (F02-02). Unknown and unauthorized scopes share one code on purpose.</summary>
 public sealed class ScopeException(string code, string message)
     : PolifemoException(code, message);
+
+/// <summary>
+/// A TokenSave snapshot read failed after resolution and the compatibility check (F03-01): locked or corrupt
+/// database, unrepresentable row, or a revision/source pairing that kept changing. The message names a code,
+/// relative paths, counts and the corrective action, never row content.
+/// </summary>
+public sealed class TokenSaveSnapshotException(string code, string message, int attempts)
+    : PolifemoException(code, message)
+{
+    public int Attempts { get; } = attempts;
+}

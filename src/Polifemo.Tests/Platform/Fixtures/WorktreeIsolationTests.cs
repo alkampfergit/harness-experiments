@@ -77,8 +77,9 @@ public sealed class WorktreeIsolationTests : IDisposable
         var init = await Polifemo.Platform.Processes.ProcessRunner.RunAsync("tokensave", ["init", dirty.Path], dirty.Path, ct: TestContext.Current.CancellationToken);
         Assert.Equal(0, init.ExitCode);
 
-        var mainGraph = await TokenSaveGraph.LoadAsync(main, ct: TestContext.Current.CancellationToken);
-        var dirtyGraph = await TokenSaveGraph.LoadAsync(dirty.Path, ct: TestContext.Current.CancellationToken);
+        var adapter = new TokenSaveAdapter();
+        var mainGraph = (await adapter.ReadAsync(main, ct: TestContext.Current.CancellationToken)).Graph;
+        var dirtyGraph = (await adapter.ReadAsync(dirty.Path, ct: TestContext.Current.CancellationToken)).Graph;
 
         Assert.NotEqual(mainGraph.DatabasePath, dirtyGraph.DatabasePath);
         string Hash(TokenSaveGraph g, string path) => g.Files.Single(f => f.Path == path).ContentHash;

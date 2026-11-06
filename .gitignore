@@ -226,3 +226,6 @@ DocProject/Help/*.HxC
 DocProject/Help/*.hhc
 DocProject/Help/*.hhk
 DocProject/Help/*.hhp
+
+# Python bytecode (helper scripts under .specify/ and tools/)
+__pycache__/

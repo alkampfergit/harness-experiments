@@ -28,7 +28,8 @@ public sealed class CisharpaiCorpus : IAsyncLifetime
     public string Worktree { get; private set; } = "";
     public string StatusBefore { get; private set; } = "";
     public string StatusAfter { get; private set; } = "";
-    public TokenSaveGraph Graph { get; private set; } = null!;
+    public GraphSnapshot Snapshot { get; private set; } = null!;
+    public TokenSaveGraph Graph => Snapshot.Graph;
     public IReadOnlyList<ExpSymbol> Symbols { get; private set; } = [];
     public IReadOnlyList<ExpRelationship> Relationships { get; private set; } = [];
 
@@ -56,7 +57,7 @@ public sealed class CisharpaiCorpus : IAsyncLifetime
         var prepared = await new SamplePreparer(_ws.Combine("work")).PrepareAsync(SamplePath, Provenance.Commit, "cisharpai", index: true);
         StatusAfter = await Git.RunAsync(SamplePath, ["--no-optional-locks", status, "--porcelain=v1", "--ignored", "--untracked-files=all"]);
         Worktree = prepared.WorkDir;
-        Graph = await TokenSaveGraph.LoadAsync(Worktree);
+        Snapshot = await new TokenSaveAdapter().ReadAsync(Worktree);
         (var symbols, var relationships) = ExpectationObserver.Extract(Graph);
         Symbols = symbols;
         Relationships = relationships;

@@ -8,6 +8,28 @@
 
 **Input**: GitHub issue #10 (F03-01, child of story #13; depends on #2, #3, #4): isolate all TokenSave table knowledge in one adapter that resolves branch metadata, opens the TokenSave database read-only and extracts files, nodes, edges, doc associations and unresolved/ambiguous relationships from a consistent snapshot.
 
+## Clarifications
+
+### Session 2026-11-01
+
+- Q: When the adapter detects that TokenSave changed during a read (a concurrent sync, or the graph no longer matching the source files), should it retry automatically or fail immediately? → A: Retry the whole read from a fresh snapshot up to 3 times, then fail with an explicit error.
+
+## Constitution Check
+
+Assessed against `.specify/memory/constitution.md` Principles I-VII at specification level; the plan repeats the check against the design.
+
+| Principle | Assessment |
+|---|---|
+| I Local-Only (NON-NEGOTIABLE) | Pass. The adapter reads local files only; no network, model or external service. Errors and logs carry codes, relative paths, table names, counts and versions, never source text (FR-012). Tests use synthetic fixtures and the public `testrepo/` corpus locally. |
+| II Evidence | Pass. No ranking, weight or heuristic is introduced. The only numeric choice, the retry limit of 3, was fixed by the approver in Clarify. |
+| III Pinned runs | Pass. Only a pinned, supported TokenSave version and schema are read (FR-005); anything else fails explicitly. |
+| IV Identity and publication | Pass. Identity never depends on TokenSave ids or line numbers (FR-011); TokenSave's last-sync time is never a cursor (FR-010); one result comes from one snapshot or fails (FR-008, FR-009). Of the required sync coverage this feature owns **concurrent sync** (US3, SC-003); additions, edits, deletions, renames, line shifts, docs-only changes, excludes, profile versions and publication crashes belong to F03-02 and F04 and are not applicable here. |
+| V Isolated contracts | Pass. The adapter is the only component that knows TokenSave's layout (FR-001); consumers use its typed output. |
+| VI Scope-correct, honest retrieval | Pass. Unresolved and ambiguous relationships are returned as such, with their confidence (FR-007), never silently resolved or dropped. The adapter serves no queries, so scope filtering does not apply. |
+| VII Staged simplicity | Pass. No new project, package or service is required by the spec. |
+
+Correctness gates: **no half-published snapshots** and **deterministic recovery** are met at this layer by "a read returns one complete revision or an explicit error, never partial data" (FR-006, FR-008, SC-001, SC-003). **Zero cross-scope leakage** does not apply: the adapter publishes and serves nothing.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Read the active graph from the correct database (Priority: P1)
@@ -75,12 +97,12 @@ While the exporter reads, TokenSave may run a sync. The adapter guarantees that 
 - **FR-001**: The adapter MUST be the only component that knows TokenSave's storage layout; all other components consume its typed output.
 - **FR-002**: The adapter MUST resolve the active database from the branch metadata and MUST NOT read any other database when metadata is malformed or its target is missing.
 - **FR-003**: The adapter MUST define and document behavior when branch metadata is absent.
-- **FR-004**: The adapter MUST open the database strictly read-only and MUST NOT create, modify, checkpoint or write any file in the TokenSave store, nor store exporter state there.
+- **FR-004**: The adapter MUST open the database strictly read-only. It MUST NOT modify, checkpoint or write the database, its journal, or any other file in the TokenSave store, and MUST NOT store exporter state there. The only permitted creation is SQLite's own sidecars, which SQLite creates when it opens a WAL-mode database read-only: a zero-length `-wal` and the `-shm` WAL index (32 KiB, observed during F03-01 implementation) whose header records zero WAL frames. They carry no database content, and the tests assert that (research R2).
 - **FR-005**: The adapter MUST verify the schema/version against a pinned supported set before extraction and fail with an actionable error naming found versus supported versions.
 - **FR-006**: The adapter MUST detect corrupt or incomplete data (missing tables/columns, unreadable database) and fail with an actionable error, returning no partial result.
 - **FR-007**: The adapter MUST extract files, nodes, edges, doc associations and unresolved/ambiguous relationships, preserving ambiguity and confidence.
-- **FR-008**: All records in one result MUST come from a single consistent snapshot of the graph, documented with its locking/snapshot strategy.
-- **FR-009**: The adapter MUST detect and report a mismatch between the graph revision and the source files it is paired with.
+- **FR-008**: All records in one result MUST come from a single consistent snapshot of the graph, documented with its locking/snapshot strategy. If a revision change is detected during a read, the adapter MUST discard the partial read and retry the whole read from a fresh snapshot, at most 3 retries, then fail with an explicit "revision kept changing" error; it MUST never return mixed-revision data.
+- **FR-009**: The adapter MUST detect a mismatch between the graph revision and the source files it is paired with, apply the same bounded retry as FR-008, and report the mismatch explicitly if it persists after the retry limit.
 - **FR-010**: The adapter MUST NOT use TokenSave's last-sync time as a downstream publication cursor or change cursor.
 - **FR-011**: Application identity MUST NOT depend on TokenSave internal ids or line numbers; they are exposed as provenance only.
 - **FR-012**: Errors and logs MUST NOT include raw source text or confidential paths beyond what is needed to act.
@@ -97,8 +119,8 @@ While the exporter reads, TokenSave may run a sync. The adapter guarantees that 
 ### Measurable Outcomes
 
 - **SC-001**: For every tested failure mode (absent, malformed, missing target, unsupported version, corrupt/incomplete), 100% of cases yield a distinct error stating the cause and the corrective action, and zero partial results.
-- **SC-002**: Across all read tests, the TokenSave store is unchanged (zero files created or modified).
-- **SC-003**: In a concurrent-sync test run repeatedly, 0 outputs mix records from different revisions.
+- **SC-002**: Across all read tests, the TokenSave store is unchanged except for SQLite sidecars that carry no data (empty `-wal`, `-shm` WAL index with zero frames): no file is created or modified apart from them, and no byte of the database, journal or metadata changes.
+- **SC-003**: In a concurrent-sync test run repeatedly, 0 outputs mix records from different revisions; each run ends in one complete revision (possibly after up to 3 retries) or an explicit retry-exhausted error.
 - **SC-004**: Tests cover absent branch metadata, a supported schema and at least one version-mismatch case, and the full suite passes with zero warnings and zero Sonar findings.
 
 ## Assumptions

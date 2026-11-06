@@ -49,9 +49,36 @@ vector, memory, `read_cache`, `node_fingerprints`, `trait_dispatch_callers`) and
 `TS_EXTRA_COLUMN`), never silently ignored.
 
 Reading a database that TokenSave left in WAL mode (no `-wal` or `-shm` file present) makes SQLite
-create empty `-wal` and `-shm` files next to it, even with `Mode=ReadOnly`. The database bytes are
-unchanged (checked by hash). The check treats a missing and an empty `-wal` as the same, so this is
+create `-wal` and `-shm` files next to it, even with `Mode=ReadOnly`. The `-wal` is empty; the
+`-shm` is SQLite's 32 KiB WAL index, whose header records zero frames (re-measured in F03-01). Neither
+holds database content, and the database bytes are unchanged (checked by hash). The check treats a missing and an empty `-wal` as the same, so this is
 not reported as `TS_DB_MODIFIED`; any real change to the main file or to a non-empty log still is.
+
+### Reading a snapshot: `polifemo platform snapshot` (F03-01)
+
+`TokenSaveAdapter.ReadAsync` is the only way to read graph rows; `polifemo platform snapshot` runs it for an
+operator. Contract: `specs/003-tokensave-adapter/contracts/tokensave-adapter.md`.
+
+```sh
+polifemo platform snapshot --worktree <dir> [--no-verify-source] [--lock-timeout <seconds>]
+```
+
+- `--worktree` (required): an indexed worktree, never `samples/` or `testrepo/` directly.
+- `--no-verify-source`: skip pairing the graph with the worktree bytes; `tokensave.sourceVerified` is then `false`.
+- `--lock-timeout` (default 5, at least 1): seconds to wait for a TokenSave writer's lock.
+
+On success it prints `{ ok: true, revision, sourceFingerprint, counts { files, symbols, edges, unresolved,
+ambiguous, docAssociations }, integrity { danglingEdges, danglingUnresolved, danglingAmbiguousSources,
+unknownCandidateIds }, tokensave { databasePath, resolution, metadataAbsent, indexVersion, binaryVersion,
+attempts, sourceVerified }, provenance }` and exits 0. `databasePath` is worktree-relative. No row content
+(names, signatures, docstrings, source) is printed.
+
+On a typed TokenSave failure it prints `{ ok: false, code, message, mismatches? }` (the code also on stderr)
+and exits 1: `TS_META_MALFORMED`, `TS_META_NO_DB`, `TS_META_ABSENT_AMBIGUOUS`, `TS_DB_MISSING`,
+`TS_VERSION_MISMATCH`, `TS_INDEX_VERSION_MISMATCH`, `TS_TABLE_MISSING`, `TS_COLUMN_MISSING`,
+`TS_COLUMN_CHANGED`, `TS_UPLOAD_ENABLED` (compatibility failures list every mismatch), `TS_DB_LOCKED`,
+`TS_DB_CORRUPT`, `TS_DATA_INCOMPLETE`, `TS_REVISION_UNSTABLE`, `TS_SOURCE_MISMATCH`. Usage errors exit 2,
+environment errors (for example `TS_BINARY_MISSING`) exit 3.
 
 ## 3. Elasticsearch capabilities under Basic (verified)
 

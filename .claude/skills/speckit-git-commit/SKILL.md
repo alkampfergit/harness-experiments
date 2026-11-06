@@ -51,9 +51,13 @@ In `.specify/extensions/git/git-config.yml`:
 commit_style: fixed
 
 auto_commit:
-  default: false          # Global toggle — set true to enable for all commands
+  # Global toggle — set true to enable for all commands.
+  # Keep comments on their own line: the scripts do not strip inline comments
+  # after true/false, so "enabled: true  # note" would read as disabled.
+  default: false
   after_specify:
-    enabled: true          # Override per-command
+    # Override per-command
+    enabled: true
     message: "[Spec Kit] Add specification"
   after_plan:
     enabled: false

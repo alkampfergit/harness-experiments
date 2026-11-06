@@ -24,6 +24,17 @@ from pathlib import Path
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 MAX_BRANCH_LENGTH = 244  # GitHub enforces a 244-byte limit on branch names
+NUMBER_TOKEN = "{number}"
+
+# re.ASCII keeps \d to 0-9 so these match the bash/PowerShell twins exactly.
+_DIGITS_RE = re.compile(r"\d+", re.ASCII)
+_LEADING_DIGITS_RE = re.compile(r"^\d+", re.ASCII)
+_LEADING_NUMBER_DASH_RE = re.compile(r"^\d+-", re.ASCII)
+_SPEC_DIR_RE = re.compile(r"^\d{3,}-", re.ASCII)
+_SEQUENTIAL_RE = re.compile(r"^(\d{3,})-", re.ASCII)
+_TIMESTAMP_RE = re.compile(r"^\d{8}-\d{6}-", re.ASCII)
+_MALFORMED_TIMESTAMP_PREFIX_RE = re.compile(r"^\d{7}-\d{6}-", re.ASCII)
+_MALFORMED_TIMESTAMP_RE = re.compile(r"\d{7,8}-\d{6}", re.ASCII)
 
 USAGE = (
     "Usage: create_new_feature_branch.py [--json] [--dry-run] "
@@ -48,6 +59,7 @@ Environment variables:
 Configuration:
   branch_template     Optional git-config.yml template with {{author}}, {{app}}, {{number}}, {{slug}}
   branch_prefix       Optional shorthand namespace expanded before {{number}}-{{slug}}
+  fetch_remotes       Set to true to run `git fetch --all --prune` before numbering (default false)
 
 Examples:
   create_new_feature_branch.py 'Add user authentication system' --short-name 'user-auth'
@@ -62,9 +74,23 @@ STOP_WORDS = frozenset(
     "this that these those my your our their want need add get set".split()
 )
 
+_BOOL_FLAGS = {
+    "--json": "json_mode",
+    "--dry-run": "dry_run",
+    "--allow-existing-branch": "allow_existing",
+    "--timestamp": "use_timestamp",
+}
+
 
 def _err(message: str) -> None:
     print(message, file=sys.stderr)
+
+
+def _run_git(repo_root: Path, *args: str, env_extra: dict | None = None):
+    env = {**os.environ, **(env_extra or {})}
+    return subprocess.run(
+        ["git", *args], cwd=repo_root, capture_output=True, text=True, env=env
+    )
 
 
 def _persist_hint(var_name: str, value: str) -> str:
@@ -87,34 +113,29 @@ class Args:
     description_parts: list[str] = field(default_factory=list)
 
 
+def _option_value(argv: list[str], index: int, option: str) -> str:
+    if index + 1 >= len(argv) or argv[index + 1].startswith("--"):
+        _err(f"Error: {option} requires a value")
+        raise SystemExit(1)
+    return argv[index + 1]
+
+
 def parse_args(argv: list[str]) -> Args:
     args = Args()
     i = 0
     while i < len(argv):
         arg = argv[i]
-        if arg == "--json":
-            args.json_mode = True
-        elif arg == "--dry-run":
-            args.dry_run = True
-        elif arg == "--allow-existing-branch":
-            args.allow_existing = True
+        if arg in _BOOL_FLAGS:
+            setattr(args, _BOOL_FLAGS[arg], True)
         elif arg == "--short-name":
-            if i + 1 >= len(argv) or argv[i + 1].startswith("--"):
-                _err("Error: --short-name requires a value")
-                raise SystemExit(1)
+            args.short_name = _option_value(argv, i, arg)
             i += 1
-            args.short_name = argv[i]
         elif arg == "--number":
-            if i + 1 >= len(argv) or argv[i + 1].startswith("--"):
-                _err("Error: --number requires a value")
-                raise SystemExit(1)
+            args.branch_number = _option_value(argv, i, arg)
             i += 1
-            args.branch_number = argv[i]
-            if not re.fullmatch(r"[0-9]+", args.branch_number):
+            if not _DIGITS_RE.fullmatch(args.branch_number):
                 _err("Error: --number must be a non-negative integer")
                 raise SystemExit(1)
-        elif arg == "--timestamp":
-            args.use_timestamp = True
         elif arg in ("--help", "-h"):
             print(HELP_TEXT)
             raise SystemExit(0)
@@ -160,20 +181,36 @@ def _load_core_common(project_root: Path | None):
     return None
 
 
+def _resolve_repo_root(core, project_root: Path | None) -> Path | None:
+    """Pick the repository root: core helper, then the discovered project, then Git's top level."""
+    if core is not None and hasattr(core, "get_repo_root"):
+        # Pass script path so cwd-outside-repo callers land on the same
+        # fallback the bash twin does. Older cores don't accept the kwarg —
+        # fall back to the no-arg call for compatibility.
+        try:
+            return Path(core.get_repo_root(script_file=Path(__file__)))
+        except TypeError:
+            return Path(core.get_repo_root())
+    # The discovered Spec Kit project wins over Git's top level: in a monorepo
+    # (apps/web/.specify inside a larger repo) the project's own config and specs
+    # must be used, not the parent repository's.
+    if project_root is not None:
+        return project_root
+    toplevel = _git_lines(Path.cwd(), "rev-parse", "--show-toplevel")
+    if toplevel:
+        return Path(toplevel[0])
+    return None
+
+
 def _local_has_git(repo_root: Path) -> bool:
-    git_marker = repo_root / ".git"
-    if not (git_marker.is_dir() or git_marker.is_file()):
-        return False
+    """True when Git reports repo_root inside a work tree.
+
+    The Git query is authoritative: a project in a subdirectory of a worktree
+    has no local .git marker, so a marker check would wrongly skip branching.
+    """
     if shutil.which("git") is None:
         return False
-    return (
-        subprocess.run(
-            ["git", "-C", str(repo_root), "rev-parse", "--is-inside-work-tree"],
-            capture_output=True,
-            text=True,
-        ).returncode
-        == 0
-    )
+    return _run_git(repo_root, "rev-parse", "--is-inside-work-tree").returncode == 0
 
 
 # ── Numbering ────────────────────────────────────────────────────────────────
@@ -187,12 +224,19 @@ def get_highest_from_specs(specs_dir: Path) -> int:
                 continue
             name = entry.name
             # Match sequential prefixes (>=3 digits), but skip timestamp dirs.
-            if re.match(r"^[0-9]{3,}-", name) and not re.match(
-                r"^[0-9]{8}-[0-9]{6}-", name
-            ):
-                number = int(re.match(r"^[0-9]+", name).group(0))
-                highest = max(highest, number)
+            if _SPEC_DIR_RE.match(name) and not _TIMESTAMP_RE.match(name):
+                highest = max(highest, int(_LEADING_DIGITS_RE.match(name).group(0)))
     return highest
+
+
+def _is_sequential_branch_segment(name: str) -> bool:
+    """Sequential (###-*) and not a timestamp or a malformed timestamp."""
+    return (
+        bool(_SEQUENTIAL_RE.match(name))
+        and not _TIMESTAMP_RE.match(name)
+        and not _MALFORMED_TIMESTAMP_PREFIX_RE.match(name)
+        and not _MALFORMED_TIMESTAMP_RE.fullmatch(name)
+    )
 
 
 def _extract_highest_number(names: list[str], scope_prefix: str) -> int:
@@ -206,25 +250,15 @@ def _extract_highest_number(names: list[str], scope_prefix: str) -> int:
                 continue
             name = name[len(scope_prefix) :]
         name = name.rsplit("/", 1)[-1]
-        if (
-            re.match(r"^[0-9]{3,}-", name)
-            and not re.match(r"^[0-9]{8}-[0-9]{6}-", name)
-            and not re.match(r"^[0-9]{7}-[0-9]{6}-", name)
-            and not re.fullmatch(r"[0-9]{7,8}-[0-9]{6}", name)
-        ):
-            match = re.match(r"^([0-9]{3,})-", name)
-            number = int(match.group(1)) if match else 0
-            highest = max(highest, number)
+        if _is_sequential_branch_segment(name):
+            highest = max(highest, int(_SEQUENTIAL_RE.match(name).group(1)))
     return highest
 
 
 def _git_lines(repo_root: Path, *args: str, env_extra: dict | None = None) -> list[str]:
     if shutil.which("git") is None:
         return []
-    env = {**os.environ, **(env_extra or {})}
-    result = subprocess.run(
-        ["git", *args], cwd=repo_root, capture_output=True, text=True, env=env
-    )
+    result = _run_git(repo_root, *args, env_extra=env_extra)
     if result.returncode != 0:
         return []
     return result.stdout.splitlines()
@@ -251,29 +285,31 @@ def get_highest_from_remote_refs(repo_root: Path, scope_prefix: str) -> int:
             remote,
             env_extra={"GIT_TERMINAL_PROMPT": "0"},
         )
-        names = [re.sub(r".*refs/heads/", "", ref) for ref in refs]
+        names = [ref.rsplit("refs/heads/", 1)[-1] for ref in refs]
         highest = max(highest, _extract_highest_number(names, scope_prefix))
     return highest
 
 
 def check_existing_branches(
-    repo_root: Path, specs_dir: Path, skip_fetch: bool, scope_prefix: str
+    repo_root: Path,
+    specs_dir: Path,
+    *,
+    fetch_remotes: bool,
+    include_remote_refs: bool,
+    scope_prefix: str,
 ) -> int:
-    """Check existing branches and return the next available number."""
-    if skip_fetch:
-        highest_branch = max(
-            get_highest_from_remote_refs(repo_root, scope_prefix),
-            get_highest_from_branches(repo_root, scope_prefix),
-        )
-    else:
-        subprocess.run(
-            ["git", "fetch", "--all", "--prune"],
-            cwd=repo_root,
-            capture_output=True,
-            text=True,
-        )
-        highest_branch = get_highest_from_branches(repo_root, scope_prefix)
+    """Return the next available feature number.
 
+    fetch_remotes runs `git fetch --all --prune` first (opt-in via git-config.yml).
+    include_remote_refs also reads remote heads with `git ls-remote` (dry-run only).
+    """
+    if fetch_remotes:
+        _run_git(repo_root, "fetch", "--all", "--prune")
+    highest_branch = get_highest_from_branches(repo_root, scope_prefix)
+    if include_remote_refs:
+        highest_branch = max(
+            highest_branch, get_highest_from_remote_refs(repo_root, scope_prefix)
+        )
     return max(highest_branch, get_highest_from_specs(specs_dir)) + 1
 
 
@@ -286,6 +322,23 @@ def clean_branch_name(name: str) -> str:
     return name.strip("-")
 
 
+def _appears_as_acronym(word: str, description: str) -> bool:
+    """True when a short word appears uppercased in the description (e.g. "API", "DB").
+
+    The boundaries are spelled out as ASCII rather than using \\b: \\b is
+    Unicode-aware on str, so "éDBé cache" would hide the acronym behind
+    a non-ASCII word character, while the bash twin's `grep -qw` runs under
+    LC_ALL=C and sees a boundary there.
+    """
+    return (
+        re.search(
+            rf"(?<![0-9A-Za-z_]){re.escape(word.upper())}(?![0-9A-Za-z_])",
+            description,
+        )
+        is not None
+    )
+
+
 def generate_branch_name(description: str) -> str:
     """Generate a branch suffix from the description with stop word filtering."""
     clean_name = re.sub(r"[^a-z0-9]", " ", description.lower())
@@ -294,18 +347,9 @@ def generate_branch_name(description: str) -> str:
     for word in clean_name.split():
         if word in STOP_WORDS:
             continue
-        if len(word) >= 3:
-            meaningful_words.append(word)
         # Keep short words only when they appear uppercased in the original
-        # description (acronyms like "API" or "DB"). The boundaries are spelled
-        # out as ASCII rather than using \b: \b is Unicode-aware on str, so
-        # "\u00e9DB\u00e9 cache" would hide the acronym behind a non-ASCII word
-        # character, while the bash twin's `grep -qw` runs under LC_ALL=C and
-        # sees a boundary there.
-        elif re.search(
-            rf"(?<![0-9A-Za-z_]){re.escape(word.upper())}(?![0-9A-Za-z_])",
-            description,
-        ):
+        # description (acronyms like "API" or "DB").
+        if len(word) >= 3 or _appears_as_acronym(word, description):
             meaningful_words.append(word)
 
     if meaningful_words:
@@ -339,6 +383,12 @@ def get_app_token(repo_root: Path) -> str:
     return branch_token(repo_root.name, "app")
 
 
+def _strip_outer_quotes(value: str) -> str:
+    """Remove a leading and/or trailing double quote, then the same for single quotes."""
+    value = value.removeprefix('"').removesuffix('"')
+    return value.removeprefix("'").removesuffix("'")
+
+
 def read_git_config_value(config_file: Path, key: str) -> str:
     if not config_file.is_file():
         return ""
@@ -349,11 +399,8 @@ def read_git_config_value(config_file: Path, key: str) -> str:
     for line in lines:
         if re.match(rf"^\s*{re.escape(key)}:", line):
             value = re.sub(rf"^\s*{re.escape(key)}:\s*", "", line)
-            value = re.sub(r"\s+#.*$", "", value)
-            value = value.strip()
-            value = re.sub(r'^"|"$', "", value)
-            value = re.sub(r"^'|'$", "", value)
-            return value
+            value = re.sub(r"\s#.*$", "", value)
+            return _strip_outer_quotes(value.strip())
     return ""
 
 
@@ -373,21 +420,21 @@ def resolve_branch_template(config_file: Path) -> str:
 def validate_branch_template(template: str) -> None:
     if not template:
         return
-    if "{number}" not in template:
+    if NUMBER_TOKEN not in template:
         _err(
             "Error: branch_template must include the {number} token so generated "
             "branches remain valid feature branches."
         )
         raise SystemExit(1)
     slug_index = template.find("{slug}")
-    if slug_index != -1 and "{number}" in template[slug_index:]:
+    if slug_index != -1 and NUMBER_TOKEN in template[slug_index:]:
         _err(
             "Error: branch_template must not place {slug} before {number}; "
             "use {slug} only in the final feature segment."
         )
         raise SystemExit(1)
     feature_segment = template.rsplit("/", 1)[-1]
-    if not feature_segment.startswith("{number}-"):
+    if not feature_segment.startswith(f"{NUMBER_TOKEN}-"):
         _err(
             "Error: branch_template must put {number}- at the start of the final "
             "path segment so generated branches remain valid feature branches."
@@ -401,17 +448,17 @@ def render_branch_template(
     rendered = template
     rendered = rendered.replace("{author}", author_token)
     rendered = rendered.replace("{app}", app_token)
-    rendered = rendered.replace("{number}", feature_num)
+    rendered = rendered.replace(NUMBER_TOKEN, feature_num)
     rendered = rendered.replace("{slug}", branch_suffix)
     return rendered
 
 
 def extract_feature_num_from_branch(branch_name: str) -> str:
     feature_segment = branch_name.rsplit("/", 1)[-1]
-    match = re.match(r"^[0-9]{8}-[0-9]{6}-", feature_segment)
+    match = _TIMESTAMP_RE.match(feature_segment)
     if match:
         return match.group(0).rstrip("-")
-    match = re.match(r"^[0-9]+-", feature_segment)
+    match = _LEADING_NUMBER_DASH_RE.match(feature_segment)
     if match:
         return match.group(0).rstrip("-")
     return branch_name
@@ -419,6 +466,202 @@ def extract_feature_num_from_branch(branch_name: str) -> str:
 
 def _byte_length(value: str) -> int:
     return len(value.encode("utf-8"))
+
+
+@dataclass
+class _Naming:
+    """Branch-name template plus the author/app tokens it may reference."""
+
+    branch_template: str
+    author_token: str
+    app_token: str
+
+    def build(self, feature_num: str, branch_suffix: str) -> str:
+        if self.branch_template:
+            return render_branch_template(
+                self.branch_template, feature_num, branch_suffix, self.author_token, self.app_token
+            )
+        return f"{feature_num}-{branch_suffix}"
+
+    def scope_prefix(self, branch_suffix: str) -> str:
+        if not self.branch_template:
+            return ""
+        prefix_template = self.branch_template.split(NUMBER_TOKEN)[0]
+        return render_branch_template(
+            prefix_template, "", branch_suffix, self.author_token, self.app_token
+        )
+
+
+# ── Branch name computation ──────────────────────────────────────────────────
+
+
+def _next_branch_number(
+    args: Args,
+    has_git_repo: bool,
+    repo_root: Path,
+    specs_dir: Path,
+    scope_prefix: str,
+    fetch_remotes: bool,
+) -> int:
+    if not has_git_repo:
+        return get_highest_from_specs(specs_dir) + 1
+    if args.dry_run:
+        # Dry-run never fetches. Remote heads are read (read-only) only when the
+        # opt-in fetch_remotes setting is true, matching the bash script.
+        return check_existing_branches(
+            repo_root,
+            specs_dir,
+            fetch_remotes=False,
+            include_remote_refs=fetch_remotes,
+            scope_prefix=scope_prefix,
+        )
+    return check_existing_branches(
+        repo_root,
+        specs_dir,
+        fetch_remotes=fetch_remotes,
+        include_remote_refs=False,
+        scope_prefix=scope_prefix,
+    )
+
+
+def _compute_branch_name(
+    args: Args,
+    description: str,
+    naming: _Naming,
+    repo_root: Path,
+    specs_dir: Path,
+    has_git_repo: bool,
+    fetch_remotes: bool,
+) -> tuple[str, str]:
+    """Return (branch_name, feature_num)."""
+    env_branch_name = os.environ.get("GIT_BRANCH_NAME", "")
+    if env_branch_name:
+        if _byte_length(env_branch_name) > MAX_BRANCH_LENGTH:
+            _err(
+                "Error: GIT_BRANCH_NAME must be 244 bytes or fewer in UTF-8. "
+                f"Provided value is {_byte_length(env_branch_name)} bytes."
+            )
+            raise SystemExit(1)
+        return env_branch_name, extract_feature_num_from_branch(env_branch_name)
+
+    branch_suffix = (
+        clean_branch_name(args.short_name)
+        if args.short_name
+        else generate_branch_name(description)
+    )
+
+    branch_number = args.branch_number
+    if args.use_timestamp and branch_number:
+        _err("[specify] Warning: --number is ignored when --timestamp is used")
+        branch_number = ""
+
+    if args.use_timestamp:
+        feature_num = datetime.now().strftime("%Y%m%d-%H%M%S")
+    else:
+        if not branch_number:
+            branch_number = str(
+                _next_branch_number(
+                    args,
+                    has_git_repo,
+                    repo_root,
+                    specs_dir,
+                    naming.scope_prefix(branch_suffix),
+                    fetch_remotes,
+                )
+            )
+        feature_num = f"{int(branch_number):03d}"
+
+    branch_name = naming.build(feature_num, branch_suffix)
+    if _byte_length(branch_name) > MAX_BRANCH_LENGTH:
+        branch_name = _fit_to_byte_limit(naming, feature_num, branch_suffix, branch_name)
+    return branch_name, feature_num
+
+
+def _fit_to_byte_limit(
+    naming: _Naming, feature_num: str, branch_suffix: str, branch_name: str
+) -> str:
+    """Shorten the slug until the branch fits GitHub's 244-byte limit."""
+    original_branch_name = branch_name
+    truncated_suffix = branch_suffix
+    while _byte_length(branch_name) > MAX_BRANCH_LENGTH and truncated_suffix:
+        truncated_suffix = truncated_suffix[:-1].rstrip("-")
+        branch_name = naming.build(feature_num, truncated_suffix)
+    if _byte_length(branch_name) > MAX_BRANCH_LENGTH:
+        _err("Error: Branch template prefix exceeds GitHub's 244-byte branch name limit.")
+        raise SystemExit(1)
+
+    _err("[specify] Warning: Branch name exceeded GitHub's 244-byte limit")
+    _err(
+        f"[specify] Original: {original_branch_name} "
+        f"({_byte_length(original_branch_name)} bytes)"
+    )
+    _err(f"[specify] Truncated to: {branch_name} ({_byte_length(branch_name)} bytes)")
+    return branch_name
+
+
+# ── Branch creation ──────────────────────────────────────────────────────────
+
+
+def _switch_to_existing_branch(repo_root: Path, branch_name: str) -> None:
+    switch = _run_git(repo_root, "checkout", "-q", branch_name)
+    if switch.returncode != 0:
+        _err(
+            f"Error: Failed to switch to existing branch '{branch_name}'. "
+            "Please resolve any local changes or conflicts and try again."
+        )
+        if switch.stderr.strip():
+            _err(switch.stderr.strip())
+        raise SystemExit(1)
+
+
+def _create_git_branch(repo_root: Path, branch_name: str, args: Args) -> None:
+    """Create and check out branch_name; exits 1 on failure."""
+    create = _run_git(repo_root, "checkout", "-q", "-b", branch_name)
+    if create.returncode == 0:
+        return
+
+    current_branch_lines = _git_lines(repo_root, "rev-parse", "--abbrev-ref", "HEAD")
+    current_branch = current_branch_lines[0] if current_branch_lines else ""
+    branch_exists = bool(_git_lines(repo_root, "branch", "--list", branch_name))
+    if not branch_exists:
+        _err(f"Error: Failed to create git branch '{branch_name}'.")
+        _err(create.stderr.strip() or "Please check your git configuration and try again.")
+        raise SystemExit(1)
+
+    if args.allow_existing:
+        if current_branch != branch_name:
+            _switch_to_existing_branch(repo_root, branch_name)
+        return
+    if args.use_timestamp:
+        _err(
+            f"Error: Branch '{branch_name}' already exists. Rerun to get "
+            "a new timestamp or use a different --short-name."
+        )
+    else:
+        _err(
+            f"Error: Branch '{branch_name}' already exists. Please use a "
+            "different feature name or specify a different number with --number."
+        )
+    raise SystemExit(1)
+
+
+def _emit_result(args: Args, branch_name: str, feature_num: str) -> None:
+    if args.json_mode:
+        payload: dict[str, object] = {
+            "BRANCH_NAME": branch_name,
+            "FEATURE_NUM": feature_num,
+        }
+        if args.dry_run:
+            payload["DRY_RUN"] = True
+        print(json.dumps(payload, ensure_ascii=False, separators=(",", ":")))
+        return
+    print(f"BRANCH_NAME: {branch_name}")
+    print(f"FEATURE_NUM: {feature_num}")
+    if not args.dry_run:
+        print(
+            "# To persist in your shell: "
+            f"{_persist_hint('SPECIFY_FEATURE', branch_name)}"
+        )
 
 
 # ── Main ─────────────────────────────────────────────────────────────────────
@@ -451,189 +694,45 @@ def main(argv: list[str]) -> int:
         )
         return 1
 
-    if core is not None and hasattr(core, "get_repo_root"):
-        # Pass script path so cwd-outside-repo callers land on the same
-        # fallback the bash twin does. Older cores don't accept the kwarg —
-        # fall back to the no-arg call for compatibility.
-        try:
-            repo_root = core.get_repo_root(script_file=Path(__file__))
-        except TypeError:
-            repo_root = core.get_repo_root()
-    else:
-        toplevel = _git_lines(Path.cwd(), "rev-parse", "--show-toplevel")
-        if toplevel:
-            repo_root = Path(toplevel[0])
-        elif project_root is not None:
-            repo_root = project_root
-        else:
-            _err("Error: Could not determine repository root.")
-            return 1
-    repo_root = Path(repo_root)
+    repo_root = _resolve_repo_root(core, project_root)
+    if repo_root is None:
+        _err("Error: Could not determine repository root.")
+        return 1
 
     has_git_repo = _local_has_git(repo_root)
-
     specs_dir = repo_root / "specs"
     config_file = repo_root / ".specify" / "extensions" / "git" / "git-config.yml"
 
-    author_token = get_author_token(repo_root)
-    app_token = get_app_token(repo_root)
-    branch_template = resolve_branch_template(config_file)
-    validate_branch_template(branch_template)
+    naming = _Naming(
+        branch_template=resolve_branch_template(config_file),
+        author_token=get_author_token(repo_root),
+        app_token=get_app_token(repo_root),
+    )
+    validate_branch_template(naming.branch_template)
+    # Remote fetching is opt-in; by default numbering uses local refs only.
+    fetch_remotes = read_git_config_value(config_file, "fetch_remotes").lower() == "true"
 
-    def build_branch_name(feature_num: str, branch_suffix: str) -> str:
-        if branch_template:
-            return render_branch_template(
-                branch_template, feature_num, branch_suffix, author_token, app_token
-            )
-        return f"{feature_num}-{branch_suffix}"
-
-    branch_number = args.branch_number
-
-    # Check for GIT_BRANCH_NAME env var override (exact name, no prefix/suffix)
-    env_branch_name = os.environ.get("GIT_BRANCH_NAME", "")
-    if env_branch_name:
-        branch_name = env_branch_name
-        feature_num = extract_feature_num_from_branch(branch_name)
-        branch_suffix = branch_name
-    else:
-        if args.short_name:
-            branch_suffix = clean_branch_name(args.short_name)
-        else:
-            branch_suffix = generate_branch_name(feature_description)
-
-        if args.use_timestamp and branch_number:
-            _err("[specify] Warning: --number is ignored when --timestamp is used")
-            branch_number = ""
-
-        if args.use_timestamp:
-            feature_num = datetime.now().strftime("%Y%m%d-%H%M%S")
-            branch_name = build_branch_name(feature_num, branch_suffix)
-        else:
-            scope_prefix = ""
-            if branch_template:
-                prefix_template = branch_template.split("{number}")[0]
-                scope_prefix = render_branch_template(
-                    prefix_template, "", branch_suffix, author_token, app_token
-                )
-            if not branch_number:
-                if args.dry_run and has_git_repo:
-                    branch_number = check_existing_branches(
-                        repo_root, specs_dir, True, scope_prefix
-                    )
-                elif args.dry_run:
-                    branch_number = get_highest_from_specs(specs_dir) + 1
-                elif has_git_repo:
-                    branch_number = check_existing_branches(
-                        repo_root, specs_dir, False, scope_prefix
-                    )
-                else:
-                    branch_number = get_highest_from_specs(specs_dir) + 1
-
-            feature_num = f"{int(branch_number):03d}"
-            branch_name = build_branch_name(feature_num, branch_suffix)
-
-    branch_byte_len = _byte_length(branch_name)
-    if env_branch_name and branch_byte_len > MAX_BRANCH_LENGTH:
-        _err(
-            "Error: GIT_BRANCH_NAME must be 244 bytes or fewer in UTF-8. "
-            f"Provided value is {branch_byte_len} bytes."
-        )
-        return 1
-    if branch_byte_len > MAX_BRANCH_LENGTH:
-        original_branch_name = branch_name
-        truncated_suffix = branch_suffix
-        while _byte_length(branch_name) > MAX_BRANCH_LENGTH and truncated_suffix:
-            truncated_suffix = truncated_suffix[:-1]
-            truncated_suffix = truncated_suffix.rstrip("-")
-            branch_name = build_branch_name(feature_num, truncated_suffix)
-        if _byte_length(branch_name) > MAX_BRANCH_LENGTH:
-            _err("Error: Branch template prefix exceeds GitHub's 244-byte branch name limit.")
-            return 1
-
-        _err("[specify] Warning: Branch name exceeded GitHub's 244-byte limit")
-        _err(
-            f"[specify] Original: {original_branch_name} "
-            f"({_byte_length(original_branch_name)} bytes)"
-        )
-        _err(f"[specify] Truncated to: {branch_name} ({_byte_length(branch_name)} bytes)")
+    branch_name, feature_num = _compute_branch_name(
+        args,
+        feature_description,
+        naming,
+        repo_root,
+        specs_dir,
+        has_git_repo,
+        fetch_remotes,
+    )
 
     if not args.dry_run:
         if has_git_repo:
-            create = subprocess.run(
-                ["git", "checkout", "-q", "-b", branch_name],
-                cwd=repo_root,
-                capture_output=True,
-                text=True,
-            )
-            if create.returncode != 0:
-                current_branch_lines = _git_lines(
-                    repo_root, "rev-parse", "--abbrev-ref", "HEAD"
-                )
-                current_branch = current_branch_lines[0] if current_branch_lines else ""
-                branch_exists = bool(
-                    _git_lines(repo_root, "branch", "--list", branch_name)
-                )
-                if branch_exists:
-                    if args.allow_existing:
-                        if current_branch != branch_name:
-                            switch = subprocess.run(
-                                ["git", "checkout", "-q", branch_name],
-                                cwd=repo_root,
-                                capture_output=True,
-                                text=True,
-                            )
-                            if switch.returncode != 0:
-                                _err(
-                                    f"Error: Failed to switch to existing branch '{branch_name}'. "
-                                    "Please resolve any local changes or conflicts and try again."
-                                )
-                                if switch.stderr.strip():
-                                    _err(switch.stderr.strip())
-                                return 1
-                    elif args.use_timestamp:
-                        _err(
-                            f"Error: Branch '{branch_name}' already exists. Rerun to get "
-                            "a new timestamp or use a different --short-name."
-                        )
-                        return 1
-                    else:
-                        _err(
-                            f"Error: Branch '{branch_name}' already exists. Please use a "
-                            "different feature name or specify a different number with --number."
-                        )
-                        return 1
-                else:
-                    _err(f"Error: Failed to create git branch '{branch_name}'.")
-                    if create.stderr.strip():
-                        _err(create.stderr.strip())
-                    else:
-                        _err("Please check your git configuration and try again.")
-                    return 1
+            _create_git_branch(repo_root, branch_name, args)
         else:
             _err(
                 "[specify] Warning: Git repository not detected; skipped branch "
                 f"creation for {branch_name}"
             )
-
         _err(f"# To persist: {_persist_hint('SPECIFY_FEATURE', branch_name)}")
 
-    if args.json_mode:
-        payload: dict[str, object] = {
-            "BRANCH_NAME": branch_name,
-            "FEATURE_NUM": feature_num,
-        }
-        if args.dry_run:
-            payload["DRY_RUN"] = True
-        print(json.dumps(payload, ensure_ascii=False, separators=(",", ":")))
-    else:
-        print(f"BRANCH_NAME: {branch_name}")
-        print(f"FEATURE_NUM: {feature_num}")
-        if not args.dry_run:
-            print(
-                "# To persist in your shell: "
-                f"{_persist_hint('SPECIFY_FEATURE', branch_name)}"
-            )
-
+    _emit_result(args, branch_name, feature_num)
     return 0
 
 
