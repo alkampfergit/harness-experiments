@@ -99,12 +99,29 @@ def _locate_message_file(path_arg: str, allowed_roots: list[Path]) -> int:
     )
 
 
+def _listed_path(base: str, relative: str) -> str:
+    """Rebuild ``base/relative`` from directory listings of the trusted root.
+
+    Each component is taken from ``os.listdir`` (matched by equality), so the
+    path that is opened is built from the file system, not from the caller's
+    argument. ``relative`` must already be normalised (no ``..``, no symlinks).
+    """
+    current = base
+    for part in relative.split(os.sep):
+        match = next((entry for entry in os.listdir(current) if entry == part), None)
+        if match is None:
+            raise _ScriptError(f"[specify] Error: message file '{relative}' not found")
+        current = os.path.join(current, match)
+    return current
+
+
 def _read_message_file(path_arg: str, allowed_roots: list[Path]) -> tuple[str, str]:
     """Return (message, resolved path) of a caller-owned message file.
 
     Only a regular file of bounded size under the project root or the system
     temporary directory is accepted (symlinks resolved first). The resolved
-    path is checked inside its root right before it is opened.
+    path is checked inside its root, then rebuilt from directory listings of
+    that root before it is opened.
     """
     if not path_arg:
         raise _ScriptError("[specify] Error: --message-file requires a path argument")
@@ -116,6 +133,9 @@ def _read_message_file(path_arg: str, allowed_roots: list[Path]) -> tuple[str, s
             f"[specify] Error: message file '{path_arg}' must be inside the project "
             "or the system temporary directory"
         )
+    message_path = _listed_path(base, os.path.relpath(message_path, base))
+    if not os.path.isfile(message_path):
+        raise _ScriptError(f"[specify] Error: message file '{path_arg}' not found")
     if os.path.getsize(message_path) > _MAX_MESSAGE_BYTES:
         raise _ScriptError(
             f"[specify] Error: message file '{path_arg}' is larger than "
