@@ -14,6 +14,22 @@
 
 - Q: When the adapter detects that TokenSave changed during a read (a concurrent sync, or the graph no longer matching the source files), should it retry automatically or fail immediately? → A: Retry the whole read from a fresh snapshot up to 3 times, then fail with an explicit error.
 
+## Constitution Check
+
+Assessed against `.specify/memory/constitution.md` Principles I-VII at specification level; the plan repeats the check against the design.
+
+| Principle | Assessment |
+|---|---|
+| I Local-Only (NON-NEGOTIABLE) | Pass. The adapter reads local files only; no network, model or external service. Errors and logs carry codes, relative paths, table names, counts and versions, never source text (FR-012). Tests use synthetic fixtures and the public `testrepo/` corpus locally. |
+| II Evidence | Pass. No ranking, weight or heuristic is introduced. The only numeric choice, the retry limit of 3, was fixed by the approver in Clarify. |
+| III Pinned runs | Pass. Only a pinned, supported TokenSave version and schema are read (FR-005); anything else fails explicitly. |
+| IV Identity and publication | Pass. Identity never depends on TokenSave ids or line numbers (FR-011); TokenSave's last-sync time is never a cursor (FR-010); one result comes from one snapshot or fails (FR-008, FR-009). Of the required sync coverage this feature owns **concurrent sync** (US3, SC-003); additions, edits, deletions, renames, line shifts, docs-only changes, excludes, profile versions and publication crashes belong to F03-02 and F04 and are not applicable here. |
+| V Isolated contracts | Pass. The adapter is the only component that knows TokenSave's layout (FR-001); consumers use its typed output. |
+| VI Scope-correct, honest retrieval | Pass. Unresolved and ambiguous relationships are returned as such, with their confidence (FR-007), never silently resolved or dropped. The adapter serves no queries, so scope filtering does not apply. |
+| VII Staged simplicity | Pass. No new project, package or service is required by the spec. |
+
+Correctness gates: **no half-published snapshots** and **deterministic recovery** are met at this layer by "a read returns one complete revision or an explicit error, never partial data" (FR-006, FR-008, SC-001, SC-003). **Zero cross-scope leakage** does not apply: the adapter publishes and serves nothing.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Read the active graph from the correct database (Priority: P1)

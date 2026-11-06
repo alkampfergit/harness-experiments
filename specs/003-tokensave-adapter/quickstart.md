@@ -23,11 +23,21 @@ Expected outcomes per success criterion:
 
 Manual failure checks (each should print one `TS_*` code and exit 1):
 
+Each check uses its own copy, so one failure cannot mask the next (a malformed `branch-meta.json` would stop the corrupt-database check at `TS_META_MALFORMED`).
+
 ```sh
-cp -r .index/work/cisharpai /tmp/w && echo '{ nope' > /tmp/w/.tokensave/branch-meta.json
-polifemo platform snapshot --worktree /tmp/w                  # TS_META_MALFORMED
-head -c 100 /dev/urandom > /tmp/w/.tokensave/tokensave.db
-polifemo platform snapshot --worktree /tmp/w                  # TS_DB_CORRUPT
+rm -rf /tmp/w-meta /tmp/w-db
+
+cp -r .index/work/cisharpai /tmp/w-meta && echo '{ nope' > /tmp/w-meta/.tokensave/branch-meta.json
+polifemo platform snapshot --worktree /tmp/w-meta             # TS_META_MALFORMED
+
+# Valid metadata; corrupt the database it selects (header overwritten, size kept, as T004 does).
+cp -r .index/work/cisharpai /tmp/w-db
+db=$(jq -r '.branches[.default_branch].db_file' /tmp/w-db/.tokensave/branch-meta.json)
+head -c 100 /dev/urandom | dd of="/tmp/w-db/.tokensave/$db" bs=100 count=1 conv=notrunc status=none
+polifemo platform snapshot --worktree /tmp/w-db               # TS_DB_CORRUPT
 ```
+
+The prepared fixture worktree is checked out on the metadata's default branch; if it is not, pick the `db_file` of the branch the worktree is on.
 
 Entities: [data-model.md](data-model.md). Strategy and codes: [contracts/tokensave-adapter.md](contracts/tokensave-adapter.md). Decisions: [research.md](research.md).

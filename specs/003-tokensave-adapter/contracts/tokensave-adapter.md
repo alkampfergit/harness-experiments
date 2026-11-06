@@ -16,7 +16,7 @@ public sealed class TokenSaveAdapter
 }
 ```
 
-- `ReadAsync` is the only way to obtain graph rows. `TokenSaveReader` is `internal`; no other type outside `Polifemo.Platform.TokenSave` names a TokenSave table or column (a test greps the solution for `FROM nodes|FROM edges|FROM files|unresolved_refs|ambiguous_calls|metadata WHERE` outside that folder).
+- `ReadAsync` is the only way to obtain graph rows. `TokenSaveReader` is `internal`; no other type outside `Polifemo.Platform.TokenSave` names a TokenSave table or `TokenSaveReader` (a test, T015, scans `src/` for `FROM <tokensave table>` and `TokenSaveReader`). The only exemptions are the adapter's own white-box tests under `src/Polifemo.Tests/Platform/TokenSave/` (they reach `TokenSaveReader` through `InternalsVisibleTo`) and the synthetic fixture builder `src/Polifemo.Tests/Support/SyntheticTokenSave.cs`, which creates TokenSave tables; every other consumer is scanned.
 - The method never creates, modifies, checkpoints or deletes any file under `.tokensave/`. The read transaction ends with `ROLLBACK`.
 - Cancellation ends with `OperationCanceledException`, never an empty snapshot.
 

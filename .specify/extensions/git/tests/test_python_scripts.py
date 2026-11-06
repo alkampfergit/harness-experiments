@@ -224,14 +224,14 @@ def test_message_file_inside_allowed_root_is_read(tmp_path: Path) -> None:
     message = tmp_path / "msg.txt"
     message.write_text("feat: yes\n", encoding="utf-8")
 
-    assert auto_commit._read_message_file(str(message), [tmp_path]) == "feat: yes"
+    assert auto_commit._read_message_file(str(message), [tmp_path])[0] == "feat: yes"
 
 
 def test_relative_message_file_resolves_against_allowed_root(tmp_path: Path) -> None:
     auto_commit = _load("auto_commit")
     (tmp_path / "msg.txt").write_text("feat: relative\n", encoding="utf-8")
 
-    assert auto_commit._read_message_file("msg.txt", [tmp_path]) == "feat: relative"
+    assert auto_commit._read_message_file("msg.txt", [tmp_path])[0] == "feat: relative"
 
 
 def test_message_file_traversal_and_symlink_escape_are_rejected(tmp_path: Path) -> None:
@@ -245,3 +245,72 @@ def test_message_file_traversal_and_symlink_escape_are_rejected(tmp_path: Path) 
     for path_arg in ("../outside.txt", str(project / "link.txt")):
         with pytest.raises(auto_commit._ScriptError, match="must be inside the project"):
             auto_commit._read_message_file(path_arg, [project])
+
+
+def test_relative_message_file_falls_back_to_the_next_allowed_root(tmp_path: Path) -> None:
+    auto_commit = _load("auto_commit")
+    project = tmp_path / "project"
+    project.mkdir()
+    temp_root = tmp_path / "tmp"
+    temp_root.mkdir()
+    (temp_root / "msg.txt").write_text("feat: second root\n", encoding="utf-8")
+
+    text, path = auto_commit._read_message_file("msg.txt", [project, temp_root])
+
+    assert text == "feat: second root"
+    assert path == os.path.realpath(temp_root / "msg.txt")
+
+
+def test_missing_message_file_inside_a_root_is_not_found(tmp_path: Path) -> None:
+    auto_commit = _load("auto_commit")
+
+    with pytest.raises(auto_commit._ScriptError, match="not found"):
+        auto_commit._read_message_file("missing.txt", [tmp_path])
+
+
+def test_root_on_another_drive_is_skipped(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    auto_commit = _load("auto_commit")
+    (tmp_path / "msg.txt").write_text("feat: other drive\n", encoding="utf-8")
+    other_drive = tmp_path / "other-drive"
+    real_commonpath = os.path.commonpath
+
+    def commonpath(paths: list[str]) -> str:
+        # Windows raises ValueError for paths on different drives.
+        if os.path.realpath(other_drive) in paths:
+            raise ValueError("Paths don't have the same drive")
+        return real_commonpath(paths)
+
+    monkeypatch.setattr(auto_commit.os.path, "commonpath", commonpath)
+
+    text, _ = auto_commit._read_message_file(
+        str(tmp_path / "msg.txt"), [other_drive, tmp_path]
+    )
+    assert text == "feat: other drive"
+
+
+def test_message_file_inside_project_is_not_committed(tmp_path: Path) -> None:
+    project = _make_project(tmp_path, CONVENTIONAL_CONFIG)
+    message_file = project / "commit-msg.txt"
+    message_file.write_text("feat: keep temp file out\n", encoding="utf-8")
+
+    result = _run_auto_commit(project, tmp_path, "--message-file", str(message_file))
+
+    assert result.returncode == 0, result.stderr
+    committed = _git(project, "show", "--name-only", "--format=", "HEAD").splitlines()
+    assert committed == ["feature.txt"]
+    assert _git(project, "status", "--porcelain") == "?? commit-msg.txt"
+
+
+def test_message_file_as_only_change_commits_nothing(tmp_path: Path) -> None:
+    project = _make_project(tmp_path, CONVENTIONAL_CONFIG)
+    (project / "feature.txt").unlink()
+    message_file = project / "commit-msg.txt"
+    message_file.write_text("feat: nothing\n", encoding="utf-8")
+
+    result = _run_auto_commit(project, tmp_path, "--message-file", str(message_file))
+
+    assert result.returncode == 0, result.stderr
+    assert "No changes to commit" in result.stderr
+    assert _git(project, "rev-list", "--count", "HEAD") == "1"

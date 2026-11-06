@@ -68,56 +68,85 @@ def _resolve_repo_root(script_dir: Path) -> Path:
     return _find_project_root(script_dir) or Path.cwd()
 
 
-def _read_message_file(path_arg: str, allowed_roots: list[Path]) -> str:
-    if not path_arg:
-        raise _ScriptError("[specify] Error: --message-file requires a path argument")
-    # Only a regular file of bounded size under the project root or the system
-    # temporary directory is accepted (symlinks resolved first). The path is
-    # joined to, resolved against and checked inside each trusted root, and only
-    # the checked path is opened.
+def _locate_message_file(path_arg: str, allowed_roots: list[Path]) -> tuple[str, str]:
+    """Return (root, path relative to root) of the first allowed root holding the file.
+
+    Every root is tried in order, so a relative path missing under the project
+    is still found in the system temporary directory. A root on another drive
+    (Windows) simply does not contain the file.
+    """
+    inside_a_root = False
     for root in allowed_roots:
         base = os.path.realpath(str(root))
         candidate = os.path.realpath(os.path.join(base, path_arg))
-        if os.path.commonpath([base, candidate]) != base:
-            continue
-        if not os.path.isfile(candidate):
-            raise _ScriptError(f"[specify] Error: message file '{path_arg}' not found")
-        if os.path.getsize(candidate) > _MAX_MESSAGE_BYTES:
-            raise _ScriptError(
-                f"[specify] Error: message file '{path_arg}' is larger than "
-                f"{_MAX_MESSAGE_BYTES} bytes"
-            )
         try:
-            with open(candidate, encoding="utf-8") as handle:
-                text = handle.read(_MAX_MESSAGE_BYTES + 1)
-        except (OSError, UnicodeDecodeError) as exc:
-            raise _ScriptError(
-                f"[specify] Error: cannot read message file '{path_arg}': {exc}"
-            ) from exc
-        return text.rstrip("\r\n")
+            contained = os.path.commonpath([base, candidate]) == base
+        except ValueError:
+            contained = False
+        if not contained:
+            continue
+        inside_a_root = True
+        if os.path.isfile(candidate):
+            return base, os.path.relpath(candidate, base)
+    if inside_a_root:
+        raise _ScriptError(f"[specify] Error: message file '{path_arg}' not found")
     raise _ScriptError(
         f"[specify] Error: message file '{path_arg}' must be inside the project "
         "or the system temporary directory"
     )
 
 
-def _parse_message_args(args: list[str], allowed_roots: list[Path]) -> str:
-    """Return the generated commit message from --message-file or a positional argument.
+def _read_message_file(path_arg: str, allowed_roots: list[Path]) -> tuple[str, str]:
+    """Return (message, resolved path) of a caller-owned message file.
 
-    The last message source wins, as in the bash twin.
+    Only a regular file of bounded size under the project root or the system
+    temporary directory is accepted (symlinks resolved first). The resolved
+    path is checked inside its root right before it is opened.
+    """
+    if not path_arg:
+        raise _ScriptError("[specify] Error: --message-file requires a path argument")
+    base, relative = _locate_message_file(path_arg, allowed_roots)
+    message_path = os.path.realpath(os.path.join(base, relative))
+    if os.path.commonpath([base, message_path]) != base:
+        raise _ScriptError(
+            f"[specify] Error: message file '{path_arg}' must be inside the project "
+            "or the system temporary directory"
+        )
+    if os.path.getsize(message_path) > _MAX_MESSAGE_BYTES:
+        raise _ScriptError(
+            f"[specify] Error: message file '{path_arg}' is larger than "
+            f"{_MAX_MESSAGE_BYTES} bytes"
+        )
+    try:
+        with open(message_path, encoding="utf-8") as handle:
+            text = handle.read(_MAX_MESSAGE_BYTES + 1)
+    except (OSError, UnicodeDecodeError) as exc:
+        raise _ScriptError(
+            f"[specify] Error: cannot read message file '{path_arg}': {exc}"
+        ) from exc
+    return text.rstrip("\r\n"), message_path
+
+
+def _parse_message_args(args: list[str], allowed_roots: list[Path]) -> tuple[str, str]:
+    """Return (generated commit message, resolved message file path or "").
+
+    The message comes from --message-file or a positional argument; the last
+    message source wins, as in the bash twin.
     """
     generated = ""
+    message_path = ""
     i = 0
     while i < len(args):
         if args[i] == "--message-file":
-            generated = _read_message_file(
+            generated, message_path = _read_message_file(
                 args[i + 1] if i + 1 < len(args) else "", allowed_roots
             )
             i += 2
         else:
             generated = args[i]
+            message_path = ""
             i += 1
-    return generated
+    return generated, message_path
 
 
 def _strip_quotes(value: str) -> str:
@@ -255,18 +284,36 @@ def _git(repo_root: Path, *args: str) -> subprocess.CompletedProcess[str]:
     )
 
 
-def _has_pending_changes(repo_root: Path) -> bool:
-    untracked = _git(repo_root, "ls-files", "--others", "--exclude-standard").stdout.strip()
+def _exclude_pathspec(repo_root: Path, message_path: str) -> list[str]:
+    """Pathspec keeping a caller's message file inside the project out of the commit."""
+    if not message_path:
+        return []
+    root = os.path.realpath(repo_root)
+    try:
+        inside = os.path.commonpath([root, message_path]) == root
+    except ValueError:
+        inside = False
+    if not inside:
+        return []
+    relative = Path(os.path.relpath(message_path, root)).as_posix()
+    return [f":(exclude,literal){relative}"]
+
+
+def _has_pending_changes(repo_root: Path, exclude: list[str]) -> bool:
+    untracked = _git(
+        repo_root, "ls-files", "--others", "--exclude-standard", "--", ".", *exclude
+    ).stdout.strip()
     clean = (
-        _git(repo_root, "diff", "--quiet", "HEAD").returncode == 0
-        and _git(repo_root, "diff", "--cached", "--quiet").returncode == 0
+        _git(repo_root, "diff", "--quiet", "HEAD", "--", ".", *exclude).returncode == 0
+        and _git(repo_root, "diff", "--cached", "--quiet", "--", ".", *exclude).returncode
+        == 0
     )
     return not clean or bool(untracked)
 
 
-def _run_commit(repo_root: Path, commit_msg: str) -> int:
+def _run_commit(repo_root: Path, commit_msg: str, exclude: list[str]) -> int:
     steps = [
-        (["add", "."], "git add"),
+        (["add", "--", ".", *exclude], "git add"),
         (["commit", "-q", "-m", commit_msg], "git commit"),
     ]
     for args, label in steps:
@@ -290,7 +337,7 @@ def main(argv: list[str]) -> int:
             Path(os.path.realpath(repo_root)),
             Path(os.path.realpath(tempfile.gettempdir())),
         ]
-        generated_message = _parse_message_args(argv[1:], allowed_roots)
+        generated_message, message_path = _parse_message_args(argv[1:], allowed_roots)
     except _ScriptError as exc:
         print(exc, file=sys.stderr)
         return 1
@@ -321,7 +368,10 @@ def main(argv: list[str]) -> int:
     if not enabled:
         return 0
 
-    if not _has_pending_changes(repo_root):
+    # A message file inside the project is the caller's temporary file: keep it
+    # out of the change check and out of staging.
+    exclude = _exclude_pathspec(repo_root, message_path)
+    if not _has_pending_changes(repo_root, exclude):
         print(f"[specify] No changes to commit after {event_name}", file=sys.stderr)
         return 0
 
@@ -346,7 +396,7 @@ def main(argv: list[str]) -> int:
     if not commit_msg:
         commit_msg = f"[Spec Kit] Auto-commit {phase} {command_name}"
 
-    if _run_commit(repo_root, commit_msg) != 0:
+    if _run_commit(repo_root, commit_msg, exclude) != 0:
         return 1
 
     print(f"[OK] Changes committed {phase} {command_name}", file=sys.stderr)
