@@ -1,4 +1,13 @@
+using System.Security.Cryptography;
+
 namespace Polifemo.Tests.Support;
+
+/// <summary>One file of a TokenSave store, for the store-unchanged tests (SC-002).</summary>
+public sealed record StoreEntry(string RelativePath, long Length, string Sha256)
+{
+    /// <summary>The zero-length <c>-wal</c>/<c>-shm</c> files SQLite may create when it opens a WAL database.</summary>
+    public bool IsSidecar => RelativePath.EndsWith("-wal", StringComparison.Ordinal) || RelativePath.EndsWith("-shm", StringComparison.Ordinal);
+}
 
 /// <summary>Per-test scratch directory under .index/test/&lt;guid&gt;/ (git-ignored).</summary>
 public sealed class TestWorkspace : IDisposable
@@ -18,6 +27,26 @@ public sealed class TestWorkspace : IDisposable
         var dir = new DirectoryInfo(AppContext.BaseDirectory);
         while (dir is not null && !File.Exists(System.IO.Path.Combine(dir.FullName, "global.json"))) dir = dir.Parent;
         return dir?.FullName ?? throw new InvalidOperationException("Repository root (global.json) not found.");
+    }
+
+    /// <summary>Every file under <paramref name="tokensaveDir"/>, sorted by relative path.</summary>
+    public static IReadOnlyList<StoreEntry> StoreDigest(string tokensaveDir) =>
+        Directory.EnumerateFiles(tokensaveDir, "*", SearchOption.AllDirectories)
+            .Select(f => new StoreEntry(
+                System.IO.Path.GetRelativePath(tokensaveDir, f).Replace('\\', '/'),
+                new FileInfo(f).Length,
+                Convert.ToHexStringLower(SHA256.HashData(File.ReadAllBytes(f)))))
+            .OrderBy(e => e.RelativePath, StringComparer.Ordinal)
+            .ToList();
+
+    /// <summary>
+    /// Asserts the store is unchanged: the same files with the same bytes, except sidecars, which may appear
+    /// but must be empty (a sidecar that carries data fails).
+    /// </summary>
+    public static void AssertStoreUnchanged(IReadOnlyList<StoreEntry> before, IReadOnlyList<StoreEntry> after)
+    {
+        Assert.Equal(before.Where(e => !e.IsSidecar), after.Where(e => !e.IsSidecar));
+        Assert.All(after.Where(e => e.IsSidecar), e => Assert.Equal(0, e.Length));
     }
 
     public void Dispose()
