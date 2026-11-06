@@ -68,15 +68,18 @@ def _resolve_repo_root(script_dir: Path) -> Path:
     return _find_project_root(script_dir) or Path.cwd()
 
 
-def _locate_message_file(path_arg: str, allowed_roots: list[Path]) -> tuple[str, str]:
-    """Return (root, path relative to root) of the first allowed root holding the file.
+def _locate_message_file(path_arg: str, allowed_roots: list[Path]) -> int:
+    """Return the index of the first allowed root holding the file.
+
+    Only the index is returned, never a path built from ``path_arg``, so the
+    caller rebuilds the trusted root itself before validating and opening.
 
     Every root is tried in order, so a relative path missing under the project
     is still found in the system temporary directory. A root on another drive
     (Windows) simply does not contain the file.
     """
     inside_a_root = False
-    for root in allowed_roots:
+    for index, root in enumerate(allowed_roots):
         base = os.path.realpath(str(root))
         candidate = os.path.realpath(os.path.join(base, path_arg))
         try:
@@ -87,7 +90,7 @@ def _locate_message_file(path_arg: str, allowed_roots: list[Path]) -> tuple[str,
             continue
         inside_a_root = True
         if os.path.isfile(candidate):
-            return base, os.path.relpath(candidate, base)
+            return index
     if inside_a_root:
         raise _ScriptError(f"[specify] Error: message file '{path_arg}' not found")
     raise _ScriptError(
@@ -105,8 +108,9 @@ def _read_message_file(path_arg: str, allowed_roots: list[Path]) -> tuple[str, s
     """
     if not path_arg:
         raise _ScriptError("[specify] Error: --message-file requires a path argument")
-    base, relative = _locate_message_file(path_arg, allowed_roots)
-    message_path = os.path.realpath(os.path.join(base, relative))
+    root_index = _locate_message_file(path_arg, allowed_roots)
+    base = os.path.realpath(str(allowed_roots[root_index]))
+    message_path = os.path.realpath(os.path.join(base, path_arg))
     if os.path.commonpath([base, message_path]) != base:
         raise _ScriptError(
             f"[specify] Error: message file '{path_arg}' must be inside the project "
