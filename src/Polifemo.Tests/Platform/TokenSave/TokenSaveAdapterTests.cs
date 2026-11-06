@@ -199,4 +199,124 @@ public sealed class TokenSaveAdapterTests : IDisposable
         Assert.Equal(first.Revision, second.Revision);
         Assert.Equal(["Value"], typeof(GraphRevision).GetProperties().Select(p => p.Name).Where(n => n != "EqualityContract"));
     }
+
+    // ---- US2: explicit, actionable failures and no partial data ----
+
+    private async Task<TException> Fails<TException>(TokenSaveAdapter? adapter = null, SnapshotReadOptions? options = null)
+        where TException : PolifemoException
+    {
+        GraphSnapshot? snapshot = null;
+        var ex = await Assert.ThrowsAsync<TException>(async () => snapshot = await (adapter ?? Adapter()).ReadAsync(_ws.Path, options, Ct));
+        Assert.Null(snapshot);
+        Assert.DoesNotContain(Sentinel, ex.Message);
+        return ex;
+    }
+
+    [Fact]
+    public async Task Malformed_metadata_is_TS_META_MALFORMED_and_names_the_file()
+    {
+        Populated(new SyntheticTokenSave { BranchMetaJson = "{ nope" }).Build(_ws.Path);
+
+        var ex = await Fails<ActiveDatabaseResolutionException>();
+
+        Assert.Equal("TS_META_MALFORMED", ex.Code);
+        Assert.Contains("branch-meta.json", ex.Message);
+    }
+
+    [Fact]
+    public async Task Missing_target_is_TS_DB_MISSING_and_does_not_fall_back()
+    {
+        Populated(new SyntheticTokenSave { BranchMetaJson = SyntheticTokenSave.BranchMeta("main", ("main", "other.db")) }).Build(_ws.Path);
+
+        var ex = await Fails<ActiveDatabaseResolutionException>();
+
+        Assert.Equal("TS_DB_MISSING", ex.Code);
+        Assert.Contains("other.db", ex.Message);
+    }
+
+    [Fact]
+    public async Task Unsupported_index_version_is_TS_INDEX_VERSION_MISMATCH_naming_found_and_supported()
+    {
+        Populated(new SyntheticTokenSave { IndexVersion = "6.0.0" }).Build(_ws.Path);
+
+        var ex = await Fails<TokenSaveCompatibilityException>();
+
+        Assert.Equal("TS_INDEX_VERSION_MISMATCH", ex.Code);
+        var mismatch = Assert.Single(ex.Mismatches);
+        Assert.Equal((PlatformPins.TokenSave, "6.0.0"), (mismatch.Expected, mismatch.Actual));
+    }
+
+    [Fact]
+    public async Task Wrong_binary_version_is_TS_VERSION_MISMATCH()
+    {
+        Populated().Build(_ws.Path);
+
+        var ex = await Fails<TokenSaveCompatibilityException>(Adapter(binary: "9.9.9"));
+
+        Assert.Equal("TS_VERSION_MISMATCH", ex.Code);
+        Assert.Contains(ex.Mismatches, m => m is { Expected: PlatformPins.TokenSave, Actual: "9.9.9" });
+    }
+
+    [Fact]
+    public async Task Dropped_table_is_TS_TABLE_MISSING_with_no_partial_data()
+    {
+        Populated(new SyntheticTokenSave().DropTable("ambiguous_calls")).Build(_ws.Path);
+
+        var ex = await Fails<TokenSaveCompatibilityException>();
+
+        Assert.Equal("TS_TABLE_MISSING", ex.Code);
+        Assert.Contains(ex.Mismatches, m => m.Subject == "ambiguous_calls");
+    }
+
+    [Fact]
+    public async Task Corrupt_file_is_TS_DB_CORRUPT_with_relative_path_and_sync_f_hint()
+    {
+        Populated().Build(_ws.Path);
+        SyntheticTokenSave.CorruptDatabase(Path.Combine(TokensaveDir, "tokensave.db"));
+
+        var ex = await Fails<TokenSaveSnapshotException>();
+
+        Assert.Equal("TS_DB_CORRUPT", ex.Code);
+        Assert.Contains("'.tokensave/tokensave.db'", ex.Message);
+        Assert.DoesNotContain(_ws.Path, ex.Message);
+        Assert.Contains("`tokensave sync -f`", ex.Message);
+    }
+
+    [Fact]
+    public async Task Locked_database_is_TS_DB_LOCKED_after_the_timeout()
+    {
+        Populated().Build(_ws.Path);
+        using var held = SyntheticTokenSave.HoldWriteLock(Path.Combine(TokensaveDir, "tokensave.db"));
+        var started = System.Diagnostics.Stopwatch.StartNew();
+
+        var ex = await Fails<TokenSaveSnapshotException>(options: new SnapshotReadOptions { LockTimeout = TimeSpan.FromSeconds(1) });
+
+        Assert.True(started.Elapsed >= TimeSpan.FromSeconds(0.9), started.Elapsed.ToString());
+        Assert.Equal("TS_DB_LOCKED", ex.Code);
+        Assert.Equal(1, ex.Attempts);
+        Assert.Contains("wait for `tokensave sync` to finish", ex.Message);
+    }
+
+    [Fact]
+    public async Task Invalid_candidate_json_is_TS_DATA_INCOMPLETE_naming_table_and_key_without_content()
+    {
+        Populated().AddAmbiguous("ca", "Baz", "src/A.cs", 9, "\"" + Sentinel + "\"").Build(_ws.Path);
+
+        var ex = await Fails<TokenSaveSnapshotException>();
+
+        Assert.Equal("TS_DATA_INCOMPLETE", ex.Code);
+        Assert.Contains("ambiguous_calls", ex.Message);
+        Assert.Contains("from_node_id ca, line 9", ex.Message);
+    }
+
+    [Fact]
+    public async Task Every_failure_message_is_free_of_row_content()
+    {
+        // Each fixture carries the sentinel as a docstring and a signature; Fails<T> asserts it never leaks.
+        Populated(new SyntheticTokenSave { IndexVersion = "1.0.0" }).Build(Path.Combine(_ws.Path));
+        Assert.Equal("TS_INDEX_VERSION_MISMATCH", (await Fails<TokenSaveCompatibilityException>()).Code);
+
+        SyntheticTokenSave.CorruptDatabase(Path.Combine(TokensaveDir, "tokensave.db"));
+        Assert.Equal("TS_DB_CORRUPT", (await Fails<TokenSaveSnapshotException>()).Code);
+    }
 }

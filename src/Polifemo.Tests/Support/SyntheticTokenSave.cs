@@ -157,7 +157,7 @@ public sealed class SyntheticTokenSave
                 Exec(conn, $"CREATE TABLE \"{extra}\" (x TEXT)");
             if (WriteIndexVersion && _tables.ContainsKey("metadata"))
                 Exec(conn, $"INSERT INTO metadata(key, value) VALUES ('last_full_index_version', '{IndexVersion}')");
-            foreach (var (table, values) in _rows)
+            foreach (var (table, values) in _rows.Where(r => _tables.ContainsKey(r.Table)))
                 Insert(conn, table, _tables[table], values);
         }
         return root;

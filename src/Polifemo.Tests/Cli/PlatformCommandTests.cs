@@ -75,4 +75,106 @@ public sealed class PlatformCommandTests : IDisposable
         var (exit, _, _) = await Run("platform", "smoke", "--password", "x");
         Assert.Equal(2, exit);
     }
+
+    private const string Secret = "SECRET_SYMBOL_TEXT";
+
+    private void SnapshotFixture(SyntheticTokenSave? ts = null)
+    {
+        var body = "class Secret {}\n"u8.ToArray();
+        SyntheticTokenSave.WriteSourceFiles(_ws.Path, new Dictionary<string, byte[]> { ["src/A.cs"] = body });
+        (ts ?? new SyntheticTokenSave())
+            .AddFile("src/A.cs", SyntheticTokenSave.ContentHashOf(body), nodeCount: 1)
+            .AddNode("n1", "class", Secret, "src/A.cs::" + Secret, "src/A.cs", 0, 0, signature: Secret, docstring: Secret)
+            .AddDoc("src/A.readme.md", "d1", "src/A.cs", "n1")
+            .Build(_ws.Path);
+    }
+
+    [Fact]
+    public async Task Snapshot_success_prints_counts_revision_and_provenance_without_row_content()
+    {
+        SnapshotFixture();
+
+        var (exit, stdout, stderr) = await Run("platform", "snapshot", "--worktree", _ws.Path);
+
+        Assert.Equal(0, exit);
+        var root = JsonDocument.Parse(stdout).RootElement;
+        Assert.True(root.GetProperty("ok").GetBoolean());
+        Assert.Matches("^[0-9a-f]{64}$", root.GetProperty("revision").GetString());
+        var counts = root.GetProperty("counts");
+        Assert.Equal(1, counts.GetProperty("files").GetInt32());
+        Assert.Equal(2, counts.GetProperty("symbols").GetInt32());
+        Assert.Equal(1, counts.GetProperty("edges").GetInt32());
+        Assert.Equal(0, counts.GetProperty("unresolved").GetInt32());
+        Assert.Equal(0, counts.GetProperty("ambiguous").GetInt32());
+        Assert.Equal(1, counts.GetProperty("docAssociations").GetInt32());
+        Assert.True(root.TryGetProperty("integrity", out _));
+        Assert.True(root.TryGetProperty("provenance", out _));
+        var ts = root.GetProperty("tokensave");
+        foreach (var p in new[] { "databasePath", "resolution", "metadataAbsent", "indexVersion", "binaryVersion", "attempts", "sourceVerified" })
+            Assert.True(ts.TryGetProperty(p, out _), p);
+        Assert.Equal(".tokensave/tokensave.db", ts.GetProperty("databasePath").GetString());
+        Assert.DoesNotContain(Secret, stdout + stderr);
+    }
+
+    [Fact]
+    public async Task Snapshot_accepts_no_verify_source_and_lock_timeout()
+    {
+        SnapshotFixture();
+
+        var (exit, stdout, _) = await Run("platform", "snapshot", "--worktree", _ws.Path, "--no-verify-source", "--lock-timeout", "1");
+
+        Assert.Equal(0, exit);
+        Assert.False(JsonDocument.Parse(stdout).RootElement.GetProperty("tokensave").GetProperty("sourceVerified").GetBoolean());
+    }
+
+    [Fact]
+    public async Task Snapshot_with_malformed_metadata_exits_1_with_TS_META_MALFORMED()
+    {
+        SnapshotFixture(new SyntheticTokenSave { BranchMetaJson = "{ nope" });
+
+        var (exit, stdout, stderr) = await Run("platform", "snapshot", "--worktree", _ws.Path);
+
+        Assert.Equal(1, exit);
+        var root = JsonDocument.Parse(stdout).RootElement;
+        Assert.False(root.GetProperty("ok").GetBoolean());
+        Assert.Equal("TS_META_MALFORMED", root.GetProperty("code").GetString());
+        Assert.False(string.IsNullOrEmpty(root.GetProperty("message").GetString()));
+        Assert.DoesNotContain(Secret, stdout + stderr);
+    }
+
+    [Fact]
+    public async Task Snapshot_of_a_corrupt_database_exits_1_with_TS_DB_CORRUPT()
+    {
+        SnapshotFixture();
+        SyntheticTokenSave.CorruptDatabase(Path.Combine(_ws.Path, ".tokensave", "tokensave.db"));
+
+        var (exit, stdout, stderr) = await Run("platform", "snapshot", "--worktree", _ws.Path);
+
+        Assert.Equal(1, exit);
+        Assert.Equal("TS_DB_CORRUPT", JsonDocument.Parse(stdout).RootElement.GetProperty("code").GetString());
+        Assert.StartsWith("TS_DB_CORRUPT: ", stderr);
+    }
+
+    [Fact]
+    public async Task Snapshot_compatibility_failure_lists_every_mismatch()
+    {
+        SnapshotFixture(new SyntheticTokenSave().DropTable("edges"));
+
+        var (exit, stdout, _) = await Run("platform", "snapshot", "--worktree", _ws.Path);
+
+        Assert.Equal(1, exit);
+        var root = JsonDocument.Parse(stdout).RootElement;
+        Assert.Equal("TS_TABLE_MISSING", root.GetProperty("code").GetString());
+        Assert.Equal("edges", root.GetProperty("mismatches")[0].GetProperty("subject").GetString());
+    }
+
+    [Theory]
+    [InlineData]
+    [InlineData("--worktree", "/nonexistent/worktree")]
+    [InlineData("--worktree", ".", "--lock-timeout", "0")]
+    public async Task Snapshot_usage_errors_exit_2(params string[] extra)
+    {
+        var (exit, _, _) = await Run(["platform", "snapshot", .. extra]);
+        Assert.Equal(2, exit);
+    }
 }
