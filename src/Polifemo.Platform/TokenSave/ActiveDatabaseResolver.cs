@@ -4,7 +4,7 @@ using Polifemo.Platform.Processes;
 
 namespace Polifemo.Platform.TokenSave;
 
-public sealed record ResolvedDatabase(string DatabasePath, string Resolution);
+public sealed record ResolvedDatabase(string DatabasePath, string Resolution, bool MetadataAbsent = false);
 
 /// <summary>
 /// Finds the active TokenSave database of a worktree (research R3): branch metadata when present,
@@ -22,7 +22,7 @@ public sealed class ActiveDatabaseResolver(Func<string, CancellationToken, Task<
         var metaPath = Path.Combine(tokensaveDir, "branch-meta.json");
 
         if (!File.Exists(metaPath))
-            return Existing(Path.Combine(tokensaveDir, DefaultDatabaseFile), "default");
+            return Existing(Path.Combine(tokensaveDir, DefaultDatabaseFile), "default") with { MetadataAbsent = true };
 
         JsonDocument doc;
         try
