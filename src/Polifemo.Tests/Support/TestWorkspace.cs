@@ -40,13 +40,24 @@ public sealed class TestWorkspace : IDisposable
             .ToList();
 
     /// <summary>
-    /// Asserts the store is unchanged: the same files with the same bytes, except sidecars, which may appear
-    /// but must be empty (a sidecar that carries data fails).
+    /// Asserts the store is unchanged: the same files with the same bytes, except the sidecars SQLite may create
+    /// when it opens a WAL database read-only. Those must carry no data: <c>-wal</c> is empty and <c>-shm</c>
+    /// (the 32 KiB WAL index) records zero frames, so a sidecar holding database content fails.
     /// </summary>
-    public static void AssertStoreUnchanged(IReadOnlyList<StoreEntry> before, IReadOnlyList<StoreEntry> after)
+    public static void AssertStoreUnchanged(string tokensaveDir, IReadOnlyList<StoreEntry> before)
     {
+        var after = StoreDigest(tokensaveDir);
         Assert.Equal(before.Where(e => !e.IsSidecar), after.Where(e => !e.IsSidecar));
-        Assert.All(after.Where(e => e.IsSidecar), e => Assert.Equal(0, e.Length));
+        foreach (var sidecar in after.Where(e => e.IsSidecar && !before.Contains(e)))
+            Assert.True(CarriesNoData(System.IO.Path.Combine(tokensaveDir, sidecar.RelativePath)), $"{sidecar.RelativePath} carries data");
+    }
+
+    private static bool CarriesNoData(string path)
+    {
+        var bytes = File.ReadAllBytes(path);
+        if (bytes.Length == 0) return true;
+        // WAL-index header: mxFrame is the 32-bit field at offset 16 (sqlite.org/walformat.html).
+        return path.EndsWith("-shm", StringComparison.Ordinal) && bytes.Length >= 20 && BitConverter.ToUInt32(bytes, 16) == 0;
     }
 
     public void Dispose()

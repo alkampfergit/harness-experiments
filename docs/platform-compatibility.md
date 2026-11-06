@@ -49,8 +49,9 @@ vector, memory, `read_cache`, `node_fingerprints`, `trait_dispatch_callers`) and
 `TS_EXTRA_COLUMN`), never silently ignored.
 
 Reading a database that TokenSave left in WAL mode (no `-wal` or `-shm` file present) makes SQLite
-create empty `-wal` and `-shm` files next to it, even with `Mode=ReadOnly`. The database bytes are
-unchanged (checked by hash). The check treats a missing and an empty `-wal` as the same, so this is
+create `-wal` and `-shm` files next to it, even with `Mode=ReadOnly`. The `-wal` is empty; the
+`-shm` is SQLite's 32 KiB WAL index, whose header records zero frames (re-measured in F03-01). Neither
+holds database content, and the database bytes are unchanged (checked by hash). The check treats a missing and an empty `-wal` as the same, so this is
 not reported as `TS_DB_MODIFIED`; any real change to the main file or to a non-empty log still is.
 
 ## 3. Elasticsearch capabilities under Basic (verified)

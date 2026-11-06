@@ -24,7 +24,7 @@ F01 already delivered the resolver (`ActiveDatabaseResolver`), the pinned schema
 
 **Performance Goals**: reading the cisharpai corpus graph (602 files, ~4.4k edges) plus source verification in under 2 s on the devcontainer; no measured target beyond "not slower than the F01 loader by more than the hashing cost"
 
-**Constraints**: zero warnings, `tools/sonar-local.sh` reports 0 findings, store byte-identical after every read (empty `-wal`/`-shm` sidecars excepted, see research R2), no raw source or query text in errors
+**Constraints**: zero warnings, `tools/sonar-local.sh` reports 0 findings, store byte-identical after every read (data-free `-wal`/`-shm` sidecars excepted, see research R2), no raw source or query text in errors
 
 **Scale/Scope**: one worktree, one database per read; corpora up to a few thousand files
 

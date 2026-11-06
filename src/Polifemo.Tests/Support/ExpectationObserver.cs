@@ -18,14 +18,15 @@ public static partial class ExpectationObserver
     private static partial Regex Whitespace();
 
     public static ExpectationRecord Observe(
-        TokenSaveGraph graph, string worktree, string state, string commit, ExpectationRecord? previous)
+        GraphSnapshot snapshot, string worktree, string state, string commit, ExpectationRecord? previous)
     {
+        var graph = snapshot.Graph;
         var (symbols, observed) = Extract(graph);
         var relationships = Merge(observed, previous, state).ToList();
 
         return new ExpectationRecord(
             1, "synthetic-csharp", state, commit, PlatformPins.TokenSave,
-            Files(graph, worktree, previous), symbols, relationships, DocAssociations(graph, worktree));
+            Files(graph, worktree, previous), symbols, relationships, DocAssociations(snapshot, worktree));
     }
 
     /// <summary>
@@ -133,16 +134,14 @@ public static partial class ExpectationObserver
         return files.OrderBy(f => f.Path, StringComparer.Ordinal).ToList();
     }
 
-    private static List<ExpDocAssociation> DocAssociations(TokenSaveGraph graph, string worktree)
+    private static List<ExpDocAssociation> DocAssociations(GraphSnapshot snapshot, string worktree)
     {
-        var docs = graph.Symbols.Where(s => s.Kind == "doc").ToDictionary(s => s.Id, s => s.FilePath);
-        var byId = graph.Symbols.ToDictionary(s => s.Id);
-        var result = graph.Edges.Where(e => e.Kind == "documents" && docs.ContainsKey(e.SourceId) && byId.ContainsKey(e.TargetId))
-            .GroupBy(e => docs[e.SourceId])
+        var result = snapshot.DocAssociations
+            .GroupBy(d => d.DocPath)
             .Select(g => new ExpDocAssociation(
                 g.Key,
-                g.Select(e => byId[e.TargetId].FilePath).Distinct().Order(StringComparer.Ordinal).ToList(),
-                g.Key.EndsWith(".readme.md", StringComparison.Ordinal) ? "sidecar" : "central"))
+                g.Select(d => d.TargetPath).Distinct().Order(StringComparer.Ordinal).ToList(),
+                g.First().Kind))
             .ToList();
 
         // A central document whose applies_to matches nothing gets no association from the extractor: it is stale.

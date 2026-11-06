@@ -22,7 +22,7 @@ public sealed class ActiveDatabaseResolver(Func<string, CancellationToken, Task<
         var metaPath = Path.Combine(tokensaveDir, "branch-meta.json");
 
         if (!File.Exists(metaPath))
-            return Existing(Path.Combine(tokensaveDir, DefaultDatabaseFile), "default") with { MetadataAbsent = true };
+            return Default(tokensaveDir);
 
         JsonDocument doc;
         try
@@ -75,6 +75,24 @@ public sealed class ActiveDatabaseResolver(Func<string, CancellationToken, Task<
         && !string.IsNullOrWhiteSpace(f.GetString())
             ? f.GetString()
             : null;
+
+    /// <summary>
+    /// Without branch metadata the default database is used only when it is the single <c>*.db</c> in
+    /// <c>.tokensave/</c> (research R8); anything else could be a different branch's database.
+    /// </summary>
+    private static ResolvedDatabase Default(string tokensaveDir)
+    {
+        var candidates = Directory.Exists(tokensaveDir)
+            ? Directory.GetFiles(tokensaveDir, "*.db").Select(f => Path.GetFileName(f)).Order(StringComparer.Ordinal).ToList()
+            : [];
+        if (candidates.Count == 0)
+            return Existing(Path.Combine(tokensaveDir, DefaultDatabaseFile), "default");
+        if (candidates is not [DefaultDatabaseFile])
+            throw new ActiveDatabaseResolutionException("TS_META_ABSENT_AMBIGUOUS",
+                $".tokensave/branch-meta.json is absent and .tokensave/ holds {string.Join(", ", candidates)}; " +
+                "run `tokensave sync` to recreate branch-meta.json or remove the extra databases.");
+        return new ResolvedDatabase(Path.Combine(tokensaveDir, DefaultDatabaseFile), "default", MetadataAbsent: true);
+    }
 
     private static ResolvedDatabase Existing(string path, string resolution) =>
         File.Exists(path)

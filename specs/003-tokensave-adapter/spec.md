@@ -97,7 +97,7 @@ While the exporter reads, TokenSave may run a sync. The adapter guarantees that 
 - **FR-001**: The adapter MUST be the only component that knows TokenSave's storage layout; all other components consume its typed output.
 - **FR-002**: The adapter MUST resolve the active database from the branch metadata and MUST NOT read any other database when metadata is malformed or its target is missing.
 - **FR-003**: The adapter MUST define and document behavior when branch metadata is absent.
-- **FR-004**: The adapter MUST open the database strictly read-only. It MUST NOT modify, checkpoint or write the database, its journal, or any other file in the TokenSave store, and MUST NOT store exporter state there. The only permitted creation is SQLite's own zero-length `-wal`/`-shm` sidecars, which SQLite creates when it opens a WAL-mode database read-only; they carry no data, and the tests assert that (research R2).
+- **FR-004**: The adapter MUST open the database strictly read-only. It MUST NOT modify, checkpoint or write the database, its journal, or any other file in the TokenSave store, and MUST NOT store exporter state there. The only permitted creation is SQLite's own sidecars, which SQLite creates when it opens a WAL-mode database read-only: a zero-length `-wal` and the `-shm` WAL index (32 KiB, observed during F03-01 implementation) whose header records zero WAL frames. They carry no database content, and the tests assert that (research R2).
 - **FR-005**: The adapter MUST verify the schema/version against a pinned supported set before extraction and fail with an actionable error naming found versus supported versions.
 - **FR-006**: The adapter MUST detect corrupt or incomplete data (missing tables/columns, unreadable database) and fail with an actionable error, returning no partial result.
 - **FR-007**: The adapter MUST extract files, nodes, edges, doc associations and unresolved/ambiguous relationships, preserving ambiguity and confidence.
@@ -119,7 +119,7 @@ While the exporter reads, TokenSave may run a sync. The adapter guarantees that 
 ### Measurable Outcomes
 
 - **SC-001**: For every tested failure mode (absent, malformed, missing target, unsupported version, corrupt/incomplete), 100% of cases yield a distinct error stating the cause and the corrective action, and zero partial results.
-- **SC-002**: Across all read tests, the TokenSave store is unchanged except for zero-length SQLite sidecars: no file is created or modified apart from them, and no byte of the database, journal or metadata changes.
+- **SC-002**: Across all read tests, the TokenSave store is unchanged except for SQLite sidecars that carry no data (empty `-wal`, `-shm` WAL index with zero frames): no file is created or modified apart from them, and no byte of the database, journal or metadata changes.
 - **SC-003**: In a concurrent-sync test run repeatedly, 0 outputs mix records from different revisions; each run ends in one complete revision (possibly after up to 3 retries) or an explicit retry-exhausted error.
 - **SC-004**: Tests cover absent branch metadata, a supported schema and at least one version-mismatch case, and the full suite passes with zero warnings and zero Sonar findings.
 

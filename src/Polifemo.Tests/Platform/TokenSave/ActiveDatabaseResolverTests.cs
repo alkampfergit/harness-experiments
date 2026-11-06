@@ -105,6 +105,8 @@ public sealed class ActiveDatabaseResolverEdgeTests : IDisposable
         return await Assert.ThrowsAsync<ActiveDatabaseResolutionException>(() => resolver.ResolveAsync(_ws.Path, TestContext.Current.CancellationToken));
     }
 
+    private static ActiveDatabaseResolver Resolver(string? branch) => new((_, _) => Task.FromResult(branch));
+
     [Fact]
     public async Task Metadata_that_is_not_a_json_object_is_TS_META_MALFORMED() =>
         Assert.Equal("TS_META_MALFORMED", (await Fail("[]")).Code);
@@ -129,5 +131,63 @@ public sealed class ActiveDatabaseResolverEdgeTests : IDisposable
         var r = await new ActiveDatabaseResolver().ResolveAsync(_ws.Path, TestContext.Current.CancellationToken);
 
         Assert.Equal("default", r.Resolution);
+    }
+
+    [Fact]
+    public async Task Absent_metadata_with_only_tokensave_db_resolves_default_and_flags_MetadataAbsent()
+    {
+        new SyntheticTokenSave().Build(_ws.Path);
+
+        var r = await Resolver("main").ResolveAsync(_ws.Path, ct: TestContext.Current.CancellationToken);
+
+        Assert.Equal("default", r.Resolution);
+        Assert.True(r.MetadataAbsent);
+    }
+
+    [Fact]
+    public async Task Absent_metadata_with_no_database_is_TS_DB_MISSING()
+    {
+        new SyntheticTokenSave { CreateDbFile = false }.Build(_ws.Path);
+        var ex = await Assert.ThrowsAsync<ActiveDatabaseResolutionException>(() => Resolver("main").ResolveAsync(_ws.Path, ct: TestContext.Current.CancellationToken));
+        Assert.Equal("TS_DB_MISSING", ex.Code);
+    }
+
+    [Fact]
+    public async Task Absent_metadata_without_a_tokensave_folder_is_TS_DB_MISSING()
+    {
+        var ex = await Assert.ThrowsAsync<ActiveDatabaseResolutionException>(() => Resolver("main").ResolveAsync(_ws.Path, ct: TestContext.Current.CancellationToken));
+        Assert.Equal("TS_DB_MISSING", ex.Code);
+    }
+
+    [Fact]
+    public async Task Absent_metadata_with_several_databases_is_TS_META_ABSENT_AMBIGUOUS()
+    {
+        new SyntheticTokenSave().Build(_ws.Path);
+        new SyntheticTokenSave { DbFile = "feature.db" }.Build(_ws.Path);
+
+        var ex = await Assert.ThrowsAsync<ActiveDatabaseResolutionException>(() => Resolver("main").ResolveAsync(_ws.Path, ct: TestContext.Current.CancellationToken));
+
+        Assert.Equal("TS_META_ABSENT_AMBIGUOUS", ex.Code);
+        Assert.Contains("feature.db, tokensave.db", ex.Message);
+        Assert.Contains("run `tokensave sync`", ex.Message);
+    }
+
+    [Fact]
+    public async Task Absent_metadata_with_one_database_not_named_tokensave_db_is_TS_META_ABSENT_AMBIGUOUS()
+    {
+        new SyntheticTokenSave { DbFile = "feature.db" }.Build(_ws.Path);
+
+        var ex = await Assert.ThrowsAsync<ActiveDatabaseResolutionException>(() => Resolver("main").ResolveAsync(_ws.Path, ct: TestContext.Current.CancellationToken));
+
+        Assert.Equal("TS_META_ABSENT_AMBIGUOUS", ex.Code);
+        Assert.Contains("feature.db", ex.Message);
+    }
+
+    [Fact]
+    public async Task Branch_meta_resolution_does_not_flag_MetadataAbsent()
+    {
+        new SyntheticTokenSave { BranchMetaJson = SyntheticTokenSave.BranchMeta("main", ("main", "tokensave.db")) }.Build(_ws.Path);
+        var r = await Resolver("main").ResolveAsync(_ws.Path, ct: TestContext.Current.CancellationToken);
+        Assert.False(r.MetadataAbsent);
     }
 }

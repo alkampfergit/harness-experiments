@@ -17,7 +17,7 @@ Expected outcomes per success criterion:
 | Criterion | Evidence |
 |---|---|
 | SC-001 distinct, actionable errors, no partial data | `TokenSaveAdapterTests`: one test per code in [contracts/tokensave-adapter.md](contracts/tokensave-adapter.md); each asserts the code, the action text and that no snapshot was returned |
-| SC-002 store unchanged | `TokenSaveAdapterTests.Store_is_byte_identical_after_read` (hash of every file under `.tokensave/`, empty sidecars excepted) |
+| SC-002 store unchanged | `TokenSaveAdapterTests.Store_is_byte_identical_after_read` (hash of every file under `.tokensave/`, data-free sidecars excepted: empty `-wal`, zero-frame `-shm`) |
 | SC-003 no mixed revisions under concurrent sync | `SnapshotStrategyTests`: real `tokensave sync` runs in a loop while reads repeat; every result is a verified single revision or an explicit `TS_REVISION_UNSTABLE`/`TS_SOURCE_MISMATCH`; retry success is asserted with `Attempts > 1` on the seam test |
 | SC-004 coverage and zero warnings/findings | absent metadata (single and ambiguous), supported schema, version mismatch tests; `dotnet build`, `dotnet test`, `tools/sonar-local.sh` |
 
